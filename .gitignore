@@ -1,0 +1,50 @@
+# Данные и медиа — никогда не коммитим
+posts/
+var/
+media/
+backups/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.pdf
+*.zip
+*.sqlite3
+*.db
+*.log
+
+# Секреты
+.env
+.env.*
+!.env.example
+.claude/env.txt
+.claude/skills/**/env.txt
+.claude/skills/**/api_vk.txt
+.claude/skills/**/auto_posting_image_api.txt
+.claude/skills/**/id_vk.txt
+.claude/settings.local.json
+.claude/scheduled_tasks.json
+
+# Сторонние и браузерные данные
+.chrome-x-profile/
+.mcp-servers/
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Временное
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db

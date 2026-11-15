@@ -1,0 +1,3 @@
+#!/bin/sh
+# Перед push проверяем все отслеживаемые файлы: пути, размеры, секреты.
+exec python -I scripts/git_guard.py --tracked

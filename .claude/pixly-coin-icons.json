@@ -1,0 +1,276 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "updated": "2026-11-15",
+    "purpose": "Каталог значков криптовалют для Pixly: тикер -> статичная ссылка на иконку + описание значка для image_prompt.",
+    "usage": "Pixly находит тикер новости, берёт prompt_shape для текста промпта. icon_url — для скачивания, проверки или оверлея; текстовые image-API не загружают URL сами.",
+    "primary_cdn": "https://cryptologos.cc/logos/{slug}-logo.png",
+    "secondary_cdn": "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/{ticker_lower}.png",
+    "fallback_lookup": "https://api.coingecko.com/api/v3/coins/{coingecko_id} -> image.large (для монет без статичной иконки)",
+    "rules": [
+      "Значок ставится только на монету/бейдж той криптовалюты, о которой новость, либо прямо упомянутых в новости.",
+      "Отдельные цифры (цена, процент, дата) разрешены, если они относятся к новости.",
+      "Запрещены: длинный текст, заголовки, абзацы, логотипы некриптовалютных брендов (Visa, Mastercard, OpenAI, банки, биржи), реальные люди, обещания прибыли."
+    ]
+  },
+  "coins": {
+    "BTC": {
+      "name": "Bitcoin",
+      "coingecko_id": "bitcoin",
+      "icon_url": "https://cryptologos.cc/logos/bitcoin-btc-logo.png",
+      "prompt_shape": "the Bitcoin symbol: a capital B crossed by two vertical strokes, orange metallic finish"
+    },
+    "ETH": {
+      "name": "Ethereum",
+      "coingecko_id": "ethereum",
+      "icon_url": "https://cryptologos.cc/logos/ethereum-eth-logo.png",
+      "prompt_shape": "the Ethereum diamond made of two stacked rhombi, blue-violet translucent crystal"
+    },
+    "USDT": {
+      "name": "Tether",
+      "coingecko_id": "tether",
+      "icon_url": "https://cryptologos.cc/logos/tether-usdt-logo.png",
+      "prompt_shape": "the Tether mark: a white T inside a green circle"
+    },
+    "USDC": {
+      "name": "USD Coin",
+      "coingecko_id": "usd-coin",
+      "icon_url": "https://cryptologos.cc/logos/usd-coin-usdc-logo.png",
+      "prompt_shape": "the USD Coin mark: a blue circle with a dollar-like S and two vertical strokes"
+    },
+    "BNB": {
+      "name": "BNB",
+      "coingecko_id": "binancecoin",
+      "icon_url": "https://cryptologos.cc/logos/bnb-bnb-logo.png",
+      "prompt_shape": "the BNB mark: a yellow diamond built from four smaller rhombi"
+    },
+    "SOL": {
+      "name": "Solana",
+      "coingecko_id": "solana",
+      "icon_url": "https://cryptologos.cc/logos/solana-sol-logo.png",
+      "prompt_shape": "the Solana mark: three parallel slanted bars in a purple-to-teal gradient"
+    },
+    "XRP": {
+      "name": "XRP",
+      "coingecko_id": "ripple",
+      "icon_url": "https://cryptologos.cc/logos/xrp-xrp-logo.png",
+      "prompt_shape": "the XRP mark: a stylized X formed by two crossing strokes, black and white"
+    },
+    "ADA": {
+      "name": "Cardano",
+      "coingecko_id": "cardano",
+      "icon_url": "https://cryptologos.cc/logos/cardano-ada-logo.png",
+      "prompt_shape": "the Cardano mark: a hexagonal emblem with a starburst of small dots, blue"
+    },
+    "DOGE": {
+      "name": "Dogecoin",
+      "coingecko_id": "dogecoin",
+      "icon_url": "https://cryptologos.cc/logos/dogecoin-doge-logo.png",
+      "prompt_shape": "the Dogecoin mark: a golden Shiba Inu dog face"
+    },
+    "AVAX": {
+      "name": "Avalanche",
+      "coingecko_id": "avalanche-2",
+      "icon_url": "https://cryptologos.cc/logos/avalanche-avax-logo.png",
+      "prompt_shape": "the Avalanche mark: a red triangle with a white chevron notch"
+    },
+    "DOT": {
+      "name": "Polkadot",
+      "coingecko_id": "polkadot",
+      "icon_url": "https://cryptologos.cc/logos/polkadot-new-dot-logo.png",
+      "prompt_shape": "the Polkadot mark: six dots orbiting a central dot, pink"
+    },
+    "LINK": {
+      "name": "Chainlink",
+      "coingecko_id": "chainlink",
+      "icon_url": "https://cryptologos.cc/logos/chainlink-link-logo.png",
+      "prompt_shape": "the Chainlink mark: a blue hexagonal chain-link cube"
+    },
+    "LTC": {
+      "name": "Litecoin",
+      "coingecko_id": "litecoin",
+      "icon_url": "https://cryptologos.cc/logos/litecoin-ltc-logo.png",
+      "prompt_shape": "the Litecoin mark: a script L with a diagonal stroke, silver-grey"
+    },
+    "BCH": {
+      "name": "Bitcoin Cash",
+      "coingecko_id": "bitcoin-cash",
+      "icon_url": "https://cryptologos.cc/logos/bitcoin-cash-bch-logo.png",
+      "prompt_shape": "the Bitcoin Cash mark: a B crossed by two strokes in green and orange"
+    },
+    "TRX": {
+      "name": "TRON",
+      "coingecko_id": "tron",
+      "icon_url": "https://cryptologos.cc/logos/tron-trx-logo.png",
+      "prompt_shape": "the TRON mark: a red angular T-like glyph"
+    },
+    "ATOM": {
+      "name": "Cosmos",
+      "coingecko_id": "cosmos",
+      "icon_url": "https://cryptologos.cc/logos/cosmos-atom-logo.png",
+      "prompt_shape": "the Cosmos mark: six ellipses orbiting a central point, purple"
+    },
+    "NEAR": {
+      "name": "NEAR Protocol",
+      "coingecko_id": "near",
+      "icon_url": "https://cryptologos.cc/logos/near-protocol-near-logo.png",
+      "prompt_shape": "the NEAR mark: a white angular N-like glyph"
+    },
+    "APT": {
+      "name": "Aptos",
+      "coingecko_id": "aptos",
+      "icon_url": "https://cryptologos.cc/logos/aptos-apt-logo.png",
+      "prompt_shape": "the Aptos mark: a black-and-white angular A glyph"
+    },
+    "ARB": {
+      "name": "Arbitrum",
+      "coingecko_id": "arbitrum",
+      "icon_url": "https://cryptologos.cc/logos/arbitrum-arb-logo.png",
+      "prompt_shape": "the Arbitrum mark: a blue geometric A inside a shield outline"
+    },
+    "OP": {
+      "name": "Optimism",
+      "coingecko_id": "optimism",
+      "icon_url": "https://cryptologos.cc/logos/optimism-ethereum-op-logo.png",
+      "prompt_shape": "the Optimism mark: a red circle with a white O-like ring"
+    },
+    "SUI": {
+      "name": "Sui",
+      "coingecko_id": "sui",
+      "icon_url": "https://cryptologos.cc/logos/sui-sui-logo.png",
+      "prompt_shape": "the Sui mark: a wave-like S curve in blue"
+    },
+    "INJ": {
+      "name": "Injective",
+      "coingecko_id": "injective-protocol",
+      "icon_url": "https://cryptologos.cc/logos/injective-inj-logo.png",
+      "prompt_shape": "the Injective mark: a stylized I/N glyph in a blue-cyan gradient"
+    },
+    "HYPE": {
+      "name": "Hyperliquid",
+      "coingecko_id": "hyperliquid",
+      "icon_url": "https://coin-images.coingecko.com/coins/images/50882/large/hyperliquid.jpg",
+      "prompt_shape": "the Hyperliquid mark: a green geometric arrow-like H glyph"
+    },
+    "TIA": {
+      "name": "Celestia",
+      "coingecko_id": "celestia",
+      "icon_url": "https://cryptologos.cc/logos/celestia-tia-logo.png",
+      "prompt_shape": "the Celestia mark: a geometric four-point star made of modular segments"
+    },
+    "DYDX": {
+      "name": "dYdX",
+      "coingecko_id": "dydx-chain",
+      "icon_url": "https://cryptologos.cc/logos/dydx-chain-dydx-logo.png",
+      "prompt_shape": "the dYdX mark: a black-and-white angular D glyph"
+    },
+    "KAVA": {
+      "name": "Kava",
+      "coingecko_id": "kava",
+      "icon_url": "https://cryptologos.cc/logos/kava-kava-logo.png",
+      "prompt_shape": "the Kava mark: a red K glyph"
+    },
+    "OSMO": {
+      "name": "Osmosis",
+      "coingecko_id": "osmosis",
+      "icon_url": "https://cryptologos.cc/logos/osmosis-osmo-logo.png",
+      "prompt_shape": "the Osmosis mark: a purple molecular circle"
+    },
+    "UNI": {
+      "name": "Uniswap",
+      "coingecko_id": "uniswap",
+      "icon_url": "https://cryptologos.cc/logos/uniswap-uni-logo.png",
+      "prompt_shape": "the Uniswap mark: a pink unicorn silhouette"
+    },
+    "AAVE": {
+      "name": "Aave",
+      "coingecko_id": "aave",
+      "icon_url": "https://cryptologos.cc/logos/aave-aave-logo.png",
+      "prompt_shape": "the Aave mark: a ghost-like A glyph in violet and teal"
+    },
+    "MKR": {
+      "name": "Maker",
+      "coingecko_id": "maker",
+      "icon_url": "https://cryptologos.cc/logos/maker-mkr-logo.png",
+      "prompt_shape": "the Maker mark: a teal M-shaped shield glyph"
+    },
+    "CRV": {
+      "name": "Curve",
+      "coingecko_id": "curve-dao-token",
+      "icon_url": "https://cryptologos.cc/logos/curve-dao-token-crv-logo.png",
+      "prompt_shape": "the Curve mark: a curved rainbow-like C in blue and yellow"
+    },
+    "LDO": {
+      "name": "Lido DAO",
+      "coingecko_id": "lido-dao",
+      "icon_url": "https://cryptologos.cc/logos/lido-dao-ldo-logo.png",
+      "prompt_shape": "the Lido mark: a blue droplet-like glyph"
+    },
+    "PYTH": {
+      "name": "Pyth Network",
+      "coingecko_id": "pyth-network",
+      "icon_url": "https://cryptologos.cc/logos/pyth-network-pyth-logo.png",
+      "prompt_shape": "the Pyth mark: a purple P with sharp geometric cuts"
+    },
+    "ZEC": {
+      "name": "Zcash",
+      "coingecko_id": "zcash",
+      "icon_url": "https://cryptologos.cc/logos/zcash-zec-logo.png",
+      "prompt_shape": "the Zcash mark: a Z crossed by horizontal bars, gold"
+    },
+    "XMR": {
+      "name": "Monero",
+      "coingecko_id": "monero",
+      "icon_url": "https://cryptologos.cc/logos/monero-xmr-logo.png",
+      "prompt_shape": "the Monero mark: an orange M glyph"
+    },
+    "SEI": {
+      "name": "Sei",
+      "coingecko_id": "sei-network",
+      "icon_url": "https://cryptologos.cc/logos/sei-sei-logo.png",
+      "prompt_shape": "the Sei mark: a red angular S glyph"
+    },
+    "TON": {
+      "name": "Toncoin",
+      "coingecko_id": "the-open-network",
+      "icon_url": "https://cryptologos.cc/logos/toncoin-ton-logo.png",
+      "prompt_shape": "the Toncoin mark: a blue diamond with a paper-plane-like cut"
+    },
+    "MNT": {
+      "name": "Mantle",
+      "coingecko_id": "mantle",
+      "icon_url": "https://cryptologos.cc/logos/mantle-mnt-logo.png",
+      "prompt_shape": "the Mantle mark: a green angular M glyph"
+    },
+    "STX": {
+      "name": "Stacks",
+      "coingecko_id": "blockstack",
+      "icon_url": "https://cryptologos.cc/logos/stacks-stx-logo.png",
+      "prompt_shape": "the Stacks mark: an orange stacked S block"
+    },
+    "PEPE": {
+      "name": "Pepe",
+      "coingecko_id": "pepe",
+      "icon_url": "https://cryptologos.cc/logos/pepe-pepe-logo.png",
+      "prompt_shape": "the Pepe mark: a green frog face"
+    },
+    "SHIB": {
+      "name": "Shiba Inu",
+      "coingecko_id": "shiba-inu",
+      "icon_url": "https://cryptologos.cc/logos/shiba-inu-shib-logo.png",
+      "prompt_shape": "the Shiba Inu mark: a red Shiba dog face"
+    },
+    "DAI": {
+      "name": "Dai",
+      "coingecko_id": "dai",
+      "icon_url": "https://cryptologos.cc/logos/dai-dai-logo.png",
+      "prompt_shape": "the Dai mark: a gold D glyph"
+    },
+    "ONDO": {
+      "name": "Ondo",
+      "coingecko_id": "ondo-finance",
+      "icon_url": "https://cryptologos.cc/logos/ondo-finance-ondo-logo.png",
+      "prompt_shape": "the Ondo mark: a black-and-white angular O glyph"
+    }
+  }
+}

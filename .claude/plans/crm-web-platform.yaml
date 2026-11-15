@@ -1,0 +1,130 @@
+version: 1.0
+project: rompetr-crm
+root: C:\Users\rp\course\content
+stack:
+  backend: fastapi + sqlalchemy2 + alembic + pydantic2 + psycopg3
+  frontend: jinja2 + htmx + alpine-csp + tailwind(prebuilt)
+  db: postgresql16
+  auth: db-sessions + argon2id + csrf + db-rate-limit
+  worker: jobs-table + claude-p (1 concurrent)
+  deploy: systemd + nginx + certbot + ufw + fail2ban
+invariants:
+  - id0: "id=0 => login=admin and role=admin and status=active; delete/role change forbidden"
+  - secrets: ".env, .claude/env.txt, skills/**/*.txt never tracked"
+  - media: "posts/ and var/ never tracked; served only via /media with auth"
+  - publish: "only approved posts; LLM never calls platform APIs"
+  - claude: "no --bare; CLAUDE_CODE_OAUTH_TOKEN; dontAsk; max-turns; external timeout"
+  - idempotency: "unique (post_id, platform) + jobs.idempotency_key; unknown => no auto-retry"
+  - repo: "public GitHub; any committed secret is compromised immediately"
+paths:
+  app: webapp/
+  tests: tests/
+  scripts: scripts/
+  hooks: .githooks/
+  runtime: var/
+  legacy_posts: posts/
+  human_plan: docs/CRM-PLAN.md
+stages:
+  - id: 0
+    name: prep-git
+    produces:
+      - .gitignore
+      - .gitattributes
+      - .env.example
+      - README.md
+      - scripts/git_guard.py
+      - scripts/install_hooks.py
+      - scripts/migrate_env.py
+      - .githooks/pre-commit
+      - .githooks/pre-push
+      - docs/CRM-PLAN.md
+      - .claude/plans/crm-web-platform.yaml
+    gates:
+      - git-check-ignore
+      - no-secrets-tracked
+      - guard-exit-0
+      - public-repo-protection-enabled
+  - id: 1
+    name: skeleton-db
+    produces:
+      - webapp/main.py
+      - webapp/config.py
+      - webapp/db.py
+      - webapp/models/
+      - alembic/versions/0001_initial.py
+    gates:
+      - alembic-upgrade
+      - healthz-200
+      - pytest-skeleton
+  - id: 2
+    name: auth-admin
+    produces:
+      - webapp/services/auth.py
+      - webapp/services/sessions.py
+      - webapp/services/bootstrap.py
+      - webapp/routers/auth.py
+      - webapp/routers/admin.py
+    gates:
+      - register-verify-ticket
+      - csrf-403
+      - ratelimit-429
+      - id0-immutable
+  - id: 3
+    name: drafts-ui
+    produces:
+      - webapp/routers/drafts.py
+      - webapp/schemas/post_document.py
+      - webapp/templates/drafts/
+    gates:
+      - guest-draft-ok
+      - publish-403
+      - audit-logged
+  - id: 4
+    name: publish-vk-tg
+    produces:
+      - webapp/services/vk.py
+      - webapp/services/telegram.py
+      - webapp/services/publish.py
+      - webapp/services/x_manual.py
+    gates:
+      - no-duplicates
+      - caption-1024
+      - error27-no-retry
+      - x-manual-pending
+  - id: 5
+    name: claude-worker
+    produces:
+      - webapp/worker.py
+      - webapp/services/claude_runner.py
+      - webapp/routers/jobs.py
+    gates:
+      - one-concurrent
+      - timeout-kills
+      - stale-requeue
+      - oauth-token
+  - id: 6
+    name: local-e2e
+    gates:
+      - ruff
+      - pytest
+      - manual-flow
+      - restore-test
+      - guard-tracked-0
+  - id: 7
+    name: vps-deploy
+    gates:
+      - https-valid
+      - services-active
+      - reboot-survives
+      - ufw-22-80-443
+      - backup-restored
+  - id: 8
+    name: gitpublisher-ci
+    produces:
+      - .claude/agents/gitpublisher.md
+      - .github/workflows/ci.yml
+    gates:
+      - guard-block-tests
+      - ci-green
+      - tag-v0.1.0
+open_questions: [Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8]
