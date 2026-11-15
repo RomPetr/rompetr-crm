@@ -28,7 +28,7 @@ class User(Base):
             "id <> 0 OR (login = 'admin' AND role = 'admin' AND status = 'active')",
             name="ck_users_root_admin",
         ),
-        CheckConstraint("char_length(login) BETWEEN 3 AND 32", name="ck_users_login_len"),
+        CheckConstraint("length(login) BETWEEN 3 AND 32", name="ck_users_login_len"),
         Index("ix_users_login", "login"),
         Index("ix_users_email", "email"),
     )
