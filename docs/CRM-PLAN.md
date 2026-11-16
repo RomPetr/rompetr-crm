@@ -113,11 +113,11 @@ ID 0 нельзя удалить или сменить роль; смена `ADM
 **Приёмка:** нет дублей; caption ≤1024; `error 27` без retry; X → `manual_pending`;
 токенов в логах нет.
 
-### Этап 5. Claude Code worker
-- [ ] `jobs`, worker loop, `ClaudeRunner`, timeout, lock
-- [ ] `ai_check`, `generate_image`
-- [ ] Админ-экран jobs
-- [ ] OAuth-токен и trust на VPS
+### Этап 5. Claude Code worker — готово локально
+- [x] `jobs`, worker loop, `ClaudeRunner`, timeout, kill tree
+- [x] `ai_check`, `generate_image`
+- [x] Админ-экран jobs и кнопки постановки в очередь
+- [ ] OAuth-токен и trust на VPS (этап деплоя)
 
 **Приёмка:** ≤1 Claude одновременно; timeout убивает процесс; stale-lock возвращает
 задачу; `claude auth status` → `oauth_token`.
