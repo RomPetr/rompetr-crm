@@ -53,6 +53,12 @@ def form_payload(token: str, version: int) -> dict:
         "source_publisher": "The Block",
         "source_published_at": "2026-11-15",
         "image_prompt": "Cinematic 3D illustration of a glowing blockchain ledger, dark fintech aesthetic.",
+        "image_enabled": "1",
+        "enabled_telegram": "1",
+        "enabled_vk": "1",
+        "enabled_instagram": "1",
+        "enabled_x": "1",
+        "enabled_tiktok": "1",
     }
     data.update(texts())
     return data
@@ -290,3 +296,38 @@ def test_job_wait_panel(client):
 
     done = client.get(queued.headers["location"])
     assert "завершена" in done.text
+
+
+def test_platform_toggles_exclude_disabled_fields(client):
+    from webapp.db import SessionLocal
+    from webapp.services import posts as posts_service
+
+    login(client, "admin", "test-admin-password-12345")
+    token = csrf(client)
+    created = client.post(
+        "/drafts/new", data={"csrf_token": token, "title": "Только Telegram и X"}, follow_redirects=False
+    )
+    post_id = int(created.headers["location"].rstrip("/").split("/")[-1])
+
+    payload = form_payload(token, 1)
+    for name in ("vk", "instagram", "tiktok"):
+        payload.pop(f"enabled_{name}")
+    client.post(f"/drafts/{post_id}", data=payload, follow_redirects=False)
+
+    db = SessionLocal()
+    try:
+        from webapp.models.content import Post
+
+        post = db.get(Post, post_id)
+        enabled = posts_service.enabled_map(post)
+        assert enabled["telegram"] and enabled["x"]
+        assert not enabled["vk"] and not enabled["instagram"] and not enabled["tiktok"]
+        assert posts_service.active_platforms(post).keys() == {"telegram", "x"}
+        errors = posts_service.validate_post(post)
+        assert errors == [], errors
+    finally:
+        db.close()
+
+    page = client.get(f"/drafts/{post_id}")
+    assert 'name="enabled_vk"' in page.text
+    assert "На проверку" not in page.text

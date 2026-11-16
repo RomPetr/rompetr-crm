@@ -211,3 +211,13 @@ select {
 
 .asset-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
 .asset-actions form { margin: 0; }
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  margin: 4px 0;
+}
+.toggle input { width: 16px; height: 16px; }

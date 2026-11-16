@@ -18,6 +18,17 @@ class ConflictError(Exception):
     pass
 
 
+def enabled_map(post: Post) -> dict[str, bool]:
+    saved = post.platforms_enabled or {}
+    return {name: bool(saved.get(name, True)) for name in PLATFORMS}
+
+
+def active_platforms(post: Post) -> dict[str, str]:
+    enabled = enabled_map(post)
+    source = post.platforms or {}
+    return {name: source.get(name, "") for name in PLATFORMS if enabled[name]}
+
+
 def _slug(title: str) -> str:
     value = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
     return value[:40] or "post"
@@ -70,6 +81,10 @@ def apply_form(post: Post, data: dict[str, str], expected_version: int) -> None:
     for name in PLATFORMS:
         platforms[name] = data.get(name, platforms.get(name, ""))
     post.platforms = platforms
+    post.platforms_enabled = {
+        name: bool(data.get(f"enabled_{name}")) for name in PLATFORMS
+    }
+    post.image_enabled = bool(data.get("image_enabled"))
     post.version += 1
     post.updated_at = datetime.now(timezone.utc)
 
@@ -81,12 +96,13 @@ def document_parts(post: Post) -> tuple[dict, str, dict[str, str]]:
         "published_at": post.source_published_at.date() if post.source_published_at else None,
         "publisher": post.source_publisher,
     }
-    platforms = {name: (post.platforms or {}).get(name, "") for name in PLATFORMS}
-    return source, post.image_prompt, platforms
+    return source, post.image_prompt, active_platforms(post)
 
 
 def validate_post(post: Post) -> list[str]:
     source, prompt, platforms = document_parts(post)
+    if not platforms:
+        return ["Включите хотя бы одну площадку"]
     missing = [name for name, text in platforms.items() if not text.strip()]
     errors = [f"{name}: пустой текст" for name in missing]
     if not post.source_title.strip():
@@ -99,7 +115,7 @@ def validate_post(post: Post) -> list[str]:
         errors.append("source.published_at: укажите дату публикации")
     if errors:
         return errors
-    return validate_document(source, prompt, platforms)
+    return validate_document(source, prompt, platforms, check_prompt=post.image_enabled)
 
 
 def submit_for_review(db: Session, post: Post) -> list[str]:

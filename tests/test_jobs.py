@@ -33,6 +33,12 @@ def make_draft(db, title: str):
             "source_publisher": "The Block",
             "source_published_at": "2026-11-15",
             "image_prompt": "Cinematic 3D illustration of a glowing blockchain ledger, dark fintech aesthetic.",
+            "image_enabled": "1",
+            "enabled_telegram": "1",
+            "enabled_vk": "1",
+            "enabled_instagram": "1",
+            "enabled_x": "1",
+            "enabled_tiktok": "1",
             **texts(),
         },
         1,
@@ -158,5 +164,27 @@ def test_failed_ai_check_requeues_same_job():
         assert again.id == job.id
         assert again.status == "queued"
         assert again.attempts == 0
+    finally:
+        db.close()
+
+
+def test_document_for_contains_only_enabled_platforms():
+    from webapp.worker import document_for
+
+    db = SessionLocal()
+    try:
+        post = make_draft(db, "Partial document")
+        post.platforms_enabled = {
+            "telegram": True,
+            "vk": False,
+            "instagram": False,
+            "x": True,
+            "tiktok": False,
+        }
+        post.image_enabled = False
+        db.commit()
+        document = document_for(post)
+        assert set(document["platforms"]) == {"telegram", "x"}
+        assert document["image_prompt"] == ""
     finally:
         db.close()

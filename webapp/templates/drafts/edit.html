@@ -14,7 +14,7 @@
 {% if message == "published" %}<p class="ok">Публикация выполнена.</p>{% endif %}
 {% if completed_job %}
   {% if completed_job.status == "succeeded" %}
-    <p class="ok">Задача #{{ completed_job.id }} завершена: {{ "AI-проверка" if completed_job.type == "ai_check" else "генерация изображения" }} выполнена.</p>
+    <p class="ok">Задача #{{ completed_job.id }} завершена: {{ "AI-перевод" if completed_job.type == "ai_check" else "генерация изображения" }} выполнена.</p>
   {% else %}
     <p class="error">Задача #{{ completed_job.id }} завершилась со статусом {{ completed_job.status }}{% if completed_job.error %}: {{ completed_job.error[:300] }}{% endif %}</p>
   {% endif %}
@@ -24,7 +24,7 @@
   <div class="spinner" aria-hidden="true"></div>
   <h2>Задача #{{ active_job.id }} в работе</h2>
   <p>
-    {{ "AI-проверка" if active_job.type == "ai_check" else "Генерация изображения" }}
+    {{ "AI-перевод" if active_job.type == "ai_check" else "Генерация изображения" }}
     занимает {% if active_job.type == "ai_check" %}10–60 секунд{% else %}10–40 секунд{% endif %}.
     Страница обновится автоматически, когда задача завершится.
   </p>
@@ -86,23 +86,30 @@
   </label>
 
   <h2>Тексты площадок</h2>
+  <p class="muted">Снимите галочку у поля, чтобы исключить его из проверки перевода и публикации.</p>
+  <label class="toggle"><input type="checkbox" name="enabled_telegram" value="1" {% if values.enabled_telegram %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить Telegram</label>
   <label>Telegram (800–1024, без хэштегов)
     <textarea name="telegram" rows="6" {% if not editable %}disabled{% endif %}>{{ values.telegram }}</textarea>
   </label>
+  <label class="toggle"><input type="checkbox" name="enabled_vk" value="1" {% if values.enabled_vk %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить VK</label>
   <label>VK (700–1500, 3–7 хэштегов)
     <textarea name="vk" rows="6" {% if not editable %}disabled{% endif %}>{{ values.vk }}</textarea>
   </label>
+  <label class="toggle"><input type="checkbox" name="enabled_instagram" value="1" {% if values.enabled_instagram %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить Instagram</label>
   <label>Instagram (100–200 слов, 5–10 хэштегов)
     <textarea name="instagram" rows="6" {% if not editable %}disabled{% endif %}>{{ values.instagram }}</textarea>
   </label>
+  <label class="toggle"><input type="checkbox" name="enabled_x" value="1" {% if values.enabled_x %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить X</label>
   <label>X (до 280, только английский)
     <textarea name="x" rows="4" {% if not editable %}disabled{% endif %}>{{ values.x }}</textarea>
   </label>
+  <label class="toggle"><input type="checkbox" name="enabled_tiktok" value="1" {% if values.enabled_tiktok %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить TikTok</label>
   <label>TikTok (50–120 слов, 3–5 хэштегов)
     <textarea name="tiktok" rows="5" {% if not editable %}disabled{% endif %}>{{ values.tiktok }}</textarea>
   </label>
 
   <h2>Иллюстрация</h2>
+  <label class="toggle"><input type="checkbox" name="image_enabled" value="1" {% if values.image_enabled %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить image_prompt</label>
   <label>image_prompt (английский)
     <textarea name="image_prompt" rows="4" {% if not editable %}disabled{% endif %}>{{ values.image_prompt }}</textarea>
   </label>
@@ -122,16 +129,18 @@
     <p class="muted">Лимиты площадок, язык X, секреты и обещания доходности.</p>
     <button class="button secondary" type="submit">Проверить</button>
   </form>
+  {% if user and user.role not in ["admin", "moderator"] %}
   <form method="post" action="/drafts/{{ post.id }}/submit" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <h2>Модерация</h2>
-    <p class="muted">Отправить админу на одобрение.</p>
+    <p class="muted">Отправить админу или модератору на одобрение.</p>
     <button class="button secondary" type="submit">На проверку</button>
   </form>
+  {% endif %}
   <form method="post" action="/drafts/{{ post.id }}/ai-check" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <h2>AI-проверка</h2>
-    <p class="muted">Checker в отдельной задаче. В dev обрабатывается автоматически; на VPS — отдельный worker.</p>
+    <h2>AI-перевод</h2>
+    <p class="muted">Переводит включённые тексты на русский и проверяет формулировки. X остаётся английским. В dev обрабатывается автоматически; на VPS — отдельный worker.</p>
     <button class="button secondary" type="submit">Запустить</button>
   </form>
   <form method="post" action="/drafts/{{ post.id }}/generate-image" class="card">

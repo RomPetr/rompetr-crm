@@ -57,6 +57,8 @@ class Post(Base):
     source_published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     image_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
     platforms: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    platforms_enabled: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    image_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     schema_version: Mapped[str] = mapped_column(
         String(64), nullable=False, default="crypto-ai-social-content/v1"
     )

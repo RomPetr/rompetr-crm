@@ -17,14 +17,16 @@ from webapp.db import SessionLocal
 from webapp.logging import configure_logging
 from webapp.models.content import Post
 from webapp.models.system import Job
-from webapp.schemas.post_document import PostDocument
+from webapp.schemas.post_document import PostDocumentPartial
 from webapp.services import claude_runner, images, jobs
+from webapp.services import posts as posts_service
 
 log = logging.getLogger(__name__)
 PLATFORMS = ("telegram", "instagram", "x", "tiktok", "vk")
 
 
 def document_for(post: Post) -> dict:
+    enabled = posts_service.enabled_map(post)
     return {
         "schema_version": "crypto-ai-social-content/v1",
         "source": {
@@ -35,27 +37,31 @@ def document_for(post: Post) -> dict:
             else None,
             "publisher": post.source_publisher,
         },
-        "image_prompt": post.image_prompt,
+        "image_prompt": post.image_prompt if post.image_enabled else "",
         "platforms": {
-            name: {"content": (post.platforms or {}).get(name, "")} for name in PLATFORMS
+            name: {"content": (post.platforms or {}).get(name, "")}
+            for name in PLATFORMS
+            if enabled.get(name)
         },
     }
 
 
 def _check_prompt(path: Path) -> str:
     return (
-        "Ты Checker проекта Content Plant. Проверь и исправь контент-файл "
-        f"{path}. Проверяй русский язык, орфографию, грамматику, пунктуацию, "
-        "кальку с английского, лимиты площадок с учётом ссылки на главную источника, "
-        "X только на английском, отсутствие секретов и обещаний доходности. "
-        "Не меняй source, если факты верны. Не выдумывай факты. "
-        "В каждой площадке последняя строка должна быть ссылкой на главную страницу "
-        "издания из source.publisher. Правь JSON только через Edit/Write. "
-        "В ответе верни короткий вердикт PASS или NEEDS_FIX и список правок."
+        "Ты переводчик и редактор Content Plant. В файле "
+        f"{path} есть только включённые пользователем площадки. "
+        "Переведи тексты telegram, vk, instagram и tiktok на русский язык, "
+        "сохранив смысл, факты и цифры. Если текст уже на русском — отредактируй "
+        "орфографию, грамматику, пунктуацию и кальку. Поле x не переводи: "
+        "оно должно остаться на английском, но проверь его английский и длину. "
+        "Не добавляй новых фактов. В каждой площадке последняя строка — ссылка "
+        "на главную страницу издания из source.publisher. Не меняй source. "
+        "Правь JSON только через Edit/Write. В ответе верни короткий вердикт "
+        "PASS или NEEDS_FIX и список переводов/правок."
     )
 
 
-def _apply_document(post: Post, document: PostDocument) -> None:
+def _apply_document(post: Post, document: PostDocumentPartial) -> None:
     post.source_title = document.source.title
     post.source_url = str(document.source.url)
     post.source_publisher = document.source.publisher
@@ -65,8 +71,14 @@ def _apply_document(post: Post, document: PostDocument) -> None:
         if isinstance(published, date)
         else post.source_published_at
     )
-    post.image_prompt = document.image_prompt
-    post.platforms = {name: getattr(document.platforms, name).content for name in PLATFORMS}
+    if post.image_enabled and document.image_prompt:
+        post.image_prompt = document.image_prompt
+    platforms = dict(post.platforms or {})
+    for name in PLATFORMS:
+        item = getattr(document.platforms, name, None)
+        if item is not None:
+            platforms[name] = item.content
+    post.platforms = platforms
     post.version += 1
 
 
@@ -91,7 +103,7 @@ def run_ai_check(db: Session, job: Job) -> dict:
         raise RuntimeError(f"Claude Code exit {result.exit_code}: {detail}. Лог: {result.log_path}")
 
     try:
-        document = PostDocument.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        document = PostDocumentPartial.model_validate(json.loads(path.read_text(encoding="utf-8")))
     except (ValidationError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"Checker вернул невалидный JSON: {exc}") from exc
 

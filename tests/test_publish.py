@@ -29,6 +29,12 @@ def make_approved_post(db, title: str) -> Post:
         "source_publisher": "The Block",
         "source_published_at": "2026-11-15",
         "image_prompt": "Cinematic 3D illustration of a glowing blockchain ledger, dark fintech aesthetic.",
+        "image_enabled": "1",
+        "enabled_telegram": "1",
+        "enabled_vk": "1",
+        "enabled_instagram": "1",
+        "enabled_x": "1",
+        "enabled_tiktok": "1",
         **texts(),
     }
     posts.apply_form(post, payload, 1)

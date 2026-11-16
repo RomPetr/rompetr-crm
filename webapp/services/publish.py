@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from webapp.models.content import Post, Publication
 from webapp.models.user import User
 from webapp.services import media, telegram, vk, x_manual
+from webapp.services import posts as posts_service
 
 PLATFORMS = ("vk", "telegram", "x")
 
@@ -44,13 +45,18 @@ def publish_post(db: Session, post: Post, actor: User) -> list[Outcome]:
         raise ValueError("Публиковать можно только одобренный пост")
 
     texts = post.platforms or {}
+    enabled = posts_service.enabled_map(post)
+    platforms = [name for name in PLATFORMS if enabled.get(name)]
+    if not platforms:
+        raise ValueError("Не включена ни одна площадка")
     image_path = None
-    asset = media.primary_asset(db, post)
-    if asset is not None:
-        image_path = media.asset_path(asset)
+    if post.image_enabled:
+        asset = media.primary_asset(db, post)
+        if asset is not None:
+            image_path = media.asset_path(asset)
 
     outcomes: list[Outcome] = []
-    for platform in PLATFORMS:
+    for platform in platforms:
         publication = _get_publication(db, post, platform)
 
         if publication.status in {"published", "manual_pending"}:
@@ -100,8 +106,9 @@ def publish_post(db: Session, post: Post, actor: User) -> list[Outcome]:
             Outcome(platform, publication.status, publication.external_url, publication.last_error)
         )
 
-    states = {item.platform: item.status for item in outcomes}
-    if states.get("vk") == "published" and states.get("telegram") == "published":
+    if outcomes and all(
+        item.status in {"published", "manual_pending"} for item in outcomes
+    ):
         post.status = "published"
         post.published_at = datetime.now(timezone.utc)
     db.flush()

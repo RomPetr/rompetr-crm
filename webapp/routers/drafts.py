@@ -36,7 +36,9 @@ def _values(post: Post) -> dict:
             post.source_published_at.date().isoformat() if post.source_published_at else ""
         ),
         "image_prompt": post.image_prompt,
+        "image_enabled": post.image_enabled,
         **(post.platforms or {}),
+        **{f"enabled_{name}": value for name, value in posts.enabled_map(post).items()},
     }
 
 
@@ -274,6 +276,8 @@ def enqueue_generate_image(
     post = _get_post(db, post_id, user)
     if not posts.can_edit(post, user):
         raise HTTPException(status_code=403)
+    if not post.image_enabled:
+        raise HTTPException(status_code=400, detail="Сначала включите image_prompt")
     selected = model if model in IMAGE_MODELS else IMAGE_MODELS[0]
     job = jobs.enqueue(
         db, "generate_image", post, created_by=user.id, payload={"model": selected}

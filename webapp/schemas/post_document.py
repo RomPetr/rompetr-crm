@@ -106,7 +106,7 @@ def _common_checks(text: str, platform: str) -> list[str]:
 
 
 def validate_platforms(platforms: dict[str, str], publisher: str | None = None) -> list[str]:
-    """Проверяет тексты площадок без требования полного документа."""
+    """Проверяет только переданные (включённые) площадки."""
     errors: list[str] = []
 
     if publisher:
@@ -116,45 +116,52 @@ def validate_platforms(platforms: dict[str, str], publisher: str | None = None) 
                 if homepage not in text:
                     errors.append(f"{name}: добавьте ссылку на главную источника {homepage}")
 
-    telegram = platforms.get("telegram", "")
-    if not 800 <= len(telegram) <= 1024:
-        errors.append(f"telegram: {len(telegram)} символов, нужно 800–1024")
-    if hashtags(telegram):
-        errors.append("telegram: хэштеги не используются")
-    errors += _common_checks(telegram, "telegram")
+    if "telegram" in platforms:
+        text = platforms["telegram"]
+        if not 800 <= len(text) <= 1024:
+            errors.append(f"telegram: {len(text)} символов, нужно 800–1024")
+        if hashtags(text):
+            errors.append("telegram: хэштеги не используются")
+        errors += _common_checks(text, "telegram")
 
-    vk = platforms.get("vk", "")
-    if not 700 <= len(vk) <= 1500:
-        errors.append(f"vk: {len(vk)} символов, нужно 700–1500")
-    if not 3 <= len(hashtags(vk)) <= 7:
-        errors.append("vk: нужно 3–7 хэштегов")
-    errors += _common_checks(vk, "vk")
+    if "vk" in platforms:
+        text = platforms["vk"]
+        if not 700 <= len(text) <= 1500:
+            errors.append(f"vk: {len(text)} символов, нужно 700–1500")
+        if not 3 <= len(hashtags(text)) <= 7:
+            errors.append("vk: нужно 3–7 хэштегов")
+        errors += _common_checks(text, "vk")
 
-    instagram = platforms.get("instagram", "")
-    if not 100 <= word_count(instagram) <= 200:
-        errors.append(f"instagram: {word_count(instagram)} слов, нужно 100–200")
-    if not 5 <= len(hashtags(instagram)) <= 10:
-        errors.append("instagram: нужно 5–10 хэштегов")
-    errors += _common_checks(instagram, "instagram")
+    if "instagram" in platforms:
+        text = platforms["instagram"]
+        if not 100 <= word_count(text) <= 200:
+            errors.append(f"instagram: {word_count(text)} слов, нужно 100–200")
+        if not 5 <= len(hashtags(text)) <= 10:
+            errors.append("instagram: нужно 5–10 хэштегов")
+        errors += _common_checks(text, "instagram")
 
-    tiktok = platforms.get("tiktok", "")
-    if not 50 <= word_count(tiktok) <= 120:
-        errors.append(f"tiktok: {word_count(tiktok)} слов, нужно 50–120")
-    if not 3 <= len(hashtags(tiktok)) <= 5:
-        errors.append("tiktok: нужно 3–5 хэштегов")
-    errors += _common_checks(tiktok, "tiktok")
+    if "tiktok" in platforms:
+        text = platforms["tiktok"]
+        if not 50 <= word_count(text) <= 120:
+            errors.append(f"tiktok: {word_count(text)} слов, нужно 50–120")
+        if not 3 <= len(hashtags(text)) <= 5:
+            errors.append("tiktok: нужно 3–5 хэштегов")
+        errors += _common_checks(text, "tiktok")
 
-    x_text = platforms.get("x", "")
-    if len(x_text) > 280:
-        errors.append(f"x: {len(x_text)} символов, максимум 280")
-    if re.search(r"[А-Яа-яЁё]", x_text):
-        errors.append("x: только английский язык")
-    errors += _common_checks(x_text, "x")
+    if "x" in platforms:
+        text = platforms["x"]
+        if len(text) > 280:
+            errors.append(f"x: {len(text)} символов, максимум 280")
+        if re.search(r"[А-Яа-яЁё]", text):
+            errors.append("x: только английский язык")
+        errors += _common_checks(text, "x")
 
     return errors
 
 
-def validate_document(source: dict, image_prompt: str, platforms: dict[str, str]) -> list[str]:
+def validate_document(
+    source: dict, image_prompt: str, platforms: dict[str, str], *, check_prompt: bool = True
+) -> list[str]:
     from pydantic import ValidationError
 
     errors = validate_platforms(platforms, source.get("publisher"))
@@ -165,6 +172,21 @@ def validate_document(source: dict, image_prompt: str, platforms: dict[str, str]
             field = ".".join(str(part) for part in item["loc"])
             errors.append(f"source.{field}: {item['msg']}")
     prompt = image_prompt.strip()
-    if not 20 <= len(prompt) <= 2000:
+    if check_prompt and not 20 <= len(prompt) <= 2000:
         errors.append("image_prompt: от 20 до 2000 символов")
     return errors
+
+
+class PlatformsPartial(BaseModel):
+    telegram: PlatformText | None = None
+    instagram: PlatformText | None = None
+    x: PlatformText | None = None
+    tiktok: PlatformText | None = None
+    vk: PlatformText | None = None
+
+
+class PostDocumentPartial(BaseModel):
+    schema_version: str = SCHEMA_VERSION
+    source: Source
+    image_prompt: str = ""
+    platforms: PlatformsPartial
