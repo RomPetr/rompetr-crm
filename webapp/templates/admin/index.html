@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Админка — Разум DEX CRM{% endblock %}
+{% block content %}
+<h1>Админка</h1>
+<p class="muted">ID {{ admin.id }} · {{ admin.login }}</p>
+<div class="grid">
+  <article class="card"><h2>{{ counts.users }}</h2><p>Пользователей</p></article>
+  <article class="card"><h2>{{ counts.pending }}</h2><p>Ожидают подтверждения</p></article>
+  <article class="card"><h2>{{ counts.tickets }}</h2><p>Открытых тикетов</p></article>
+  <article class="card"><h2>{{ counts.posts }}</h2><p>Постов</p></article>
+  <article class="card"><h2>{{ counts.jobs }}</h2><p>Задач в очереди</p></article>
+</div>
+<section class="card note">
+  <p><a href="/admin/users">Пользователи</a> · <a href="/admin/tickets">Тикеты</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Сброс пароля{% endblock %}
+{% block content %}
+<section class="auth-card card">
+  <h1>Сброс пароля</h1>
+  {% if sent %}
+    <p class="ok">Если аккаунт с таким e-mail существует, письмо со ссылкой отправлено.</p>
+    <p class="muted">Dev-режим: письмо лежит в <code>var/mail/</code>.</p>
+  {% else %}
+    <form method="post" action="/forgot-password" class="form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>E-mail
+        <input name="email" type="email" autocomplete="email" required>
+      </label>
+      <button class="button" type="submit">Отправить ссылку</button>
+    </form>
+  {% endif %}
+  <p><a href="/login">Назад ко входу</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,191 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from webapp.db import get_db
+from webapp.deps import csrf_protect, require_admin
+from webapp.models.content import Post
+from webapp.models.support import Ticket, TicketMessage
+from webapp.models.system import Job
+from webapp.models.user import User
+from webapp.services import audit, sessions
+from webapp.templating import render
+
+router = APIRouter(
+    prefix="/admin", tags=["admin"], dependencies=[Depends(csrf_protect)]
+)
+
+
+def _admin(request: Request) -> User:
+    return request.state.user
+
+
+@router.get("")
+def overview(request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    counts = {
+        "users": db.execute(select(func.count(User.id))).scalar_one(),
+        "pending": db.execute(
+            select(func.count(User.id)).where(User.status == "pending")
+        ).scalar_one(),
+        "tickets": db.execute(
+            select(func.count(Ticket.id)).where(Ticket.status != "closed")
+        ).scalar_one(),
+        "posts": db.execute(select(func.count(Post.id))).scalar_one(),
+        "jobs": db.execute(
+            select(func.count(Job.id)).where(Job.status.in_(["queued", "running"]))
+        ).scalar_one(),
+    }
+    return render(request, "admin/index.html", admin=admin, counts=counts)
+
+
+@router.get("/users")
+def users_list(request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    users = db.execute(select(User).order_by(User.id)).scalars().all()
+    return render(request, "admin/users.html", admin=admin, users=users)
+
+
+@router.post("/users/{user_id}/approve")
+def approve_user(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404)
+    if user.id == 0:
+        raise HTTPException(status_code=400, detail="ID 0 неизменяем")
+    user.role = "user"
+    user.status = "active"
+    for ticket in db.execute(
+        select(Ticket).where(Ticket.user_id == user.id, Ticket.status != "closed")
+    ).scalars():
+        ticket.status = "closed"
+        ticket.closed_at = datetime.now(timezone.utc)
+    audit.log_action(db, "admin.user_approved", actor_id=admin.id, entity_type="user", entity_id=str(user.id))
+    db.commit()
+    return RedirectResponse("/admin/users", status_code=303)
+
+
+@router.post("/users/{user_id}/block")
+def block_user(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404)
+    if user.id == 0:
+        raise HTTPException(status_code=400, detail="ID 0 неизменяем")
+    user.status = "blocked"
+    sessions.revoke_user_sessions(db, user.id)
+    audit.log_action(db, "admin.user_blocked", actor_id=admin.id, entity_type="user", entity_id=str(user.id))
+    db.commit()
+    return RedirectResponse("/admin/users", status_code=303)
+
+
+@router.post("/users/{user_id}/role")
+def change_role(
+    user_id: int,
+    role: str = Form(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if role not in {"guest", "user", "admin"}:
+        raise HTTPException(status_code=400, detail="Неизвестная роль")
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404)
+    if user.id == 0:
+        raise HTTPException(status_code=400, detail="ID 0 неизменяем")
+    user.role = role
+    audit.log_action(
+        db,
+        "admin.role_changed",
+        actor_id=admin.id,
+        entity_type="user",
+        entity_id=str(user.id),
+        meta={"role": role},
+    )
+    db.commit()
+    return RedirectResponse("/admin/users", status_code=303)
+
+
+@router.post("/users/{user_id}/revoke-sessions")
+def revoke_sessions(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404)
+    sessions.revoke_user_sessions(db, user.id)
+    audit.log_action(db, "admin.sessions_revoked", actor_id=admin.id, entity_type="user", entity_id=str(user.id))
+    db.commit()
+    return RedirectResponse("/admin/users", status_code=303)
+
+
+@router.get("/tickets")
+def tickets_list(request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    tickets = db.execute(
+        select(Ticket, User)
+        .join(User, User.id == Ticket.user_id)
+        .order_by(Ticket.status, Ticket.created_at.desc())
+    ).all()
+    return render(request, "admin/tickets.html", admin=admin, tickets=tickets)
+
+
+@router.get("/tickets/{ticket_id}")
+def ticket_detail(
+    ticket_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    ticket = db.get(Ticket, ticket_id)
+    if ticket is None:
+        raise HTTPException(status_code=404)
+    owner = db.get(User, ticket.user_id)
+    messages = db.execute(
+        select(TicketMessage, User)
+        .join(User, User.id == TicketMessage.author_id, isouter=True)
+        .where(TicketMessage.ticket_id == ticket.id)
+        .order_by(TicketMessage.created_at)
+    ).all()
+    return render(
+        request,
+        "admin/ticket_detail.html",
+        admin=admin,
+        ticket=ticket,
+        owner=owner,
+        messages=messages,
+    )
+
+
+@router.post("/tickets/{ticket_id}/messages")
+def ticket_reply(
+    ticket_id: int,
+    body: str = Form(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    ticket = db.get(Ticket, ticket_id)
+    if ticket is None:
+        raise HTTPException(status_code=404)
+    text = body.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Пустое сообщение")
+    db.add(TicketMessage(ticket_id=ticket.id, author_id=admin.id, body=text[:4000]))
+    ticket.updated_at = datetime.now(timezone.utc)
+    audit.log_action(db, "admin.ticket_reply", actor_id=admin.id, entity_type="ticket", entity_id=str(ticket.id))
+    db.commit()
+    return RedirectResponse(f"/admin/tickets/{ticket.id}", status_code=303)

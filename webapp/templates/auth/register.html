@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Регистрация — Разум DEX CRM{% endblock %}
+{% block content %}
+<section class="auth-card card">
+  {% if done %}
+    <h1>Проверьте почту</h1>
+    <p>Мы отправили ссылку подтверждения на указанный e-mail. После подтверждения аккаунт получит гостевой доступ, а в админке появится тикет.</p>
+    {% if dev_link %}
+      <p class="muted">Dev-режим: письмо не отправляется. <a href="{{ dev_link }}">Подтвердить e-mail</a></p>
+    {% endif %}
+    <p><a href="/login">Перейти ко входу</a></p>
+  {% else %}
+    <h1>Регистрация</h1>
+    <p class="muted">Новый аккаунт получает гостевой доступ: можно готовить черновики, публикация — после одобрения администратором.</p>
+    {% if errors %}<div class="error">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+    <form method="post" action="/register" class="form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Логин
+        <input name="login" value="{{ login | default('') }}" pattern="[a-z0-9_]{3,32}" autocomplete="username" required>
+      </label>
+      <label>E-mail
+        <input name="email" type="email" value="{{ email | default('') }}" autocomplete="email" required>
+      </label>
+      <label>Пароль (минимум 12 символов)
+        <input name="password" type="password" minlength="12" autocomplete="new-password" required>
+      </label>
+      <label>Повторите пароль
+        <input name="password_confirm" type="password" minlength="12" autocomplete="new-password" required>
+      </label>
+      <button class="button" type="submit">Создать аккаунт</button>
+    </form>
+    <p class="muted">Уже есть аккаунт? <a href="/login">Войти</a></p>
+  {% endif %}
+</section>
+{% endblock %}

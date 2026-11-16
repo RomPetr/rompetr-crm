@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Подтверждение e-mail{% endblock %}
+{% block content %}
+<section class="auth-card card">
+  <h1>{{ "Готово" if ok else "Подтверждение e-mail" }}</h1>
+  <p class="{{ 'ok' if ok else 'error' }}">{{ message }}</p>
+  <p><a href="/login">Перейти ко входу</a></p>
+</section>
+{% endblock %}

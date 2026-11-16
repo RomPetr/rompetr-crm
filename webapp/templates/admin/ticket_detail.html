@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Тикет #{{ ticket.id }}{% endblock %}
+{% block content %}
+<h1>Тикет #{{ ticket.id }}</h1>
+<p class="muted">{{ ticket.subject }} · {{ ticket.kind }} · {{ ticket.status }} · пользователь {{ owner.id }} · {{ owner.login }}</p>
+
+<div class="card">
+  {% for message, author in messages %}
+    <div class="message {{ 'internal' if message.is_internal else '' }}">
+      <p class="muted">{{ author.login if author else "система" }} · {{ message.created_at.strftime("%Y-%m-%d %H:%M") }}</p>
+      <p>{{ message.body }}</p>
+    </div>
+  {% else %}
+    <p class="muted">Сообщений нет.</p>
+  {% endfor %}
+</div>
+
+<form method="post" action="/admin/tickets/{{ ticket.id }}/messages" class="form card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label>Ответ
+    <textarea name="body" rows="4" required></textarea>
+  </label>
+  <button class="button" type="submit">Отправить</button>
+</form>
+<p><a href="/admin/tickets">Назад к тикетам</a></p>
+{% endblock %}
