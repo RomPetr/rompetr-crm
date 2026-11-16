@@ -42,10 +42,14 @@ def _values(post: Post) -> dict:
 @router.get("/drafts")
 def list_drafts(request: Request, db: Session = Depends(get_db)):
     user: User = request.state.user
-    stmt = select(Post).order_by(Post.updated_at.desc())
+    stmt = (
+        select(Post, User)
+        .join(User, User.id == Post.author_id)
+        .order_by(Post.updated_at.desc())
+    )
     if user.role != "admin":
         stmt = stmt.where(Post.author_id == user.id)
-    items = db.execute(stmt).scalars().all()
+    items = db.execute(stmt).all()
     return render(request, "drafts/list.html", items=items)
 
 
@@ -72,6 +76,7 @@ def edit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
     user: User = request.state.user
     post = _get_post(db, post_id, user)
     asset = media.primary_asset(db, post)
+    moderator = db.get(User, post.approved_by) if post.approved_by is not None else None
     publications = db.execute(
         select(Publication).where(Publication.post_id == post.id).order_by(Publication.platform)
     ).scalars().all()
@@ -82,6 +87,7 @@ def edit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
         values=_values(post),
         asset=asset,
         publications=publications,
+        moderator=moderator,
         editable=posts.can_edit(post, user),
         message=request.query_params.get("ok"),
         error=request.query_params.get("error"),

@@ -5,19 +5,51 @@
   <h1>Черновики</h1>
   <a class="button" href="/drafts/new">Новый черновик</a>
 </div>
+<p class="muted">Статус «pending_review» означает, что черновик ждёт подтверждения администратора.</p>
 <div class="table-wrap">
 <table class="table">
-  <thead><tr><th>ID</th><th>Название</th><th>Статус</th><th>Обновлён</th></tr></thead>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Название</th>
+      {% if user and user.role == "admin" %}<th>Автор</th>{% endif %}
+      <th>Статус</th>
+      <th>Обновлён</th>
+      {% if user and user.role == "admin" %}<th>Модерация</th>{% endif %}
+    </tr>
+  </thead>
   <tbody>
-  {% for post in items %}
+  {% for post, author in items %}
     <tr>
       <td>{{ post.id }}</td>
       <td><a href="/drafts/{{ post.id }}">{{ post.title or "Без названия" }}</a></td>
+      {% if user and user.role == "admin" %}
+        <td>{{ author.id }} · {{ author.login }}</td>
+      {% endif %}
       <td>{{ post.status }}</td>
       <td>{{ post.updated_at.strftime("%Y-%m-%d %H:%M") }}</td>
+      {% if user and user.role == "admin" %}
+        <td class="actions-cell">
+          {% if post.status == "pending_review" %}
+            <form method="post" action="/admin/posts/{{ post.id }}/approve">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="button small" type="submit">Подтвердить</button>
+            </form>
+            <form method="post" action="/admin/posts/{{ post.id }}/reject">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input name="reason" placeholder="причина" required>
+              <button class="button small secondary" type="submit">Отклонить</button>
+            </form>
+          {% elif post.approved_at %}
+            <span class="muted">проверено: {{ "admin" if post.approved_by == 0 else "ID " ~ post.approved_by }}</span>
+          {% else %}
+            <span class="muted">—</span>
+          {% endif %}
+        </td>
+      {% endif %}
     </tr>
   {% else %}
-    <tr><td colspan="4" class="muted">Черновиков пока нет.</td></tr>
+    <tr><td colspan="{{ 6 if user and user.role == 'admin' else 4 }}" class="muted">Черновиков пока нет.</td></tr>
   {% endfor %}
   </tbody>
 </table>

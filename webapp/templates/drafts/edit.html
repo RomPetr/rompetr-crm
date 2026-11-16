@@ -22,6 +22,13 @@
 {% if post.rejection_reason %}
   <p class="error">Причина отклонения: {{ post.rejection_reason }}</p>
 {% endif %}
+{% if post.approved_at and moderator %}
+  <p class="muted">
+    Модерация: {{ "одобрено" if post.status == "approved" else "отклонено" }}
+    · {{ moderator.login }} (ID {{ moderator.id }})
+    · {{ post.approved_at.strftime("%Y-%m-%d %H:%M") }}
+  </p>
+{% endif %}
 
 {% if not editable %}
   <p class="muted">Редактирование недоступно в статусе «{{ post.status }}».</p>

@@ -189,3 +189,53 @@ def test_publisher_homepage_field(client):
     script = client.get("/static/js/publisher.js")
     assert script.status_code == 200
     assert "theblock.co" in script.text
+
+
+def test_admin_sees_author_and_moderates_from_drafts(client):
+    from webapp.db import SessionLocal
+    from webapp.models.user import User
+    from webapp.services.security import hash_password
+
+    db = SessionLocal()
+    try:
+        if not db.query(User).filter(User.login == "chuttkii").first():
+            db.add(
+                User(
+                    login="chuttkii",
+                    email="chuttkii@example.com",
+                    password_hash=hash_password("chuttkii-password-123"),
+                    role="guest",
+                    status="active",
+                )
+            )
+            db.commit()
+    finally:
+        db.close()
+
+    login(client, "chuttkii", "chuttkii-password-123")
+    token = csrf(client)
+    created = client.post(
+        "/drafts/new", data={"csrf_token": token, "title": "второй"}, follow_redirects=False
+    )
+    post_id = int(created.headers["location"].rstrip("/").split("/")[-1])
+    client.post(f"/drafts/{post_id}", data=form_payload(token, 1), follow_redirects=False)
+    submitted = client.post(
+        f"/drafts/{post_id}/submit", data={"csrf_token": token}, follow_redirects=False
+    )
+    assert submitted.status_code == 303
+
+    login(client, "admin", "test-admin-password-12345")
+    admin_token = csrf(client)
+    listing = client.get("/drafts")
+    assert listing.status_code == 200
+    assert "chuttkii" in listing.text
+    assert "Подтвердить" in listing.text
+
+    approved = client.post(
+        f"/admin/posts/{post_id}/approve", data={"csrf_token": admin_token}, follow_redirects=False
+    )
+    assert approved.status_code == 303
+
+    page = client.get(f"/drafts/{post_id}")
+    assert "Модерация:" in page.text
+    assert "admin" in page.text
