@@ -72,6 +72,8 @@ class Settings(BaseSettings):
 
     claude_bin: str = "claude"
     claude_code_oauth_token: SecretStr = SecretStr("")
+    anthropic_auth_token: SecretStr = SecretStr("")
+    anthropic_base_url: str = ""
     claude_config_dir: str = ""
     claude_model: str = "sonnet"
     claude_fallback_model: str = "haiku"

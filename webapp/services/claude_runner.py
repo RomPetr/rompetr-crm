@@ -73,12 +73,12 @@ def run(prompt: str, job_id: str, timeout_sec: int | None = None) -> RunResult:
         str(settings.claude_max_turns),
         "--max-budget-usd",
         str(settings.claude_max_budget_usd),
-        "--model",
-        settings.claude_model,
-        "--fallback-model",
-        settings.claude_fallback_model,
-        "--no-session-persistence",
     ]
+    if settings.claude_model:
+        command += ["--model", settings.claude_model]
+    if settings.claude_fallback_model:
+        command += ["--fallback-model", settings.claude_fallback_model]
+    command.append("--no-session-persistence")
 
     allowed_env = {
         "PATH",
@@ -105,6 +105,13 @@ def run(prompt: str, job_id: str, timeout_sec: int | None = None) -> RunResult:
     token = settings.claude_code_oauth_token.get_secret_value()
     if token:
         env["CLAUDE_CODE_OAUTH_TOKEN"] = token
+        env.pop("ANTHROPIC_AUTH_TOKEN", None)
+    else:
+        local_token = settings.anthropic_auth_token.get_secret_value()
+        if local_token:
+            env["ANTHROPIC_AUTH_TOKEN"] = local_token
+            if settings.anthropic_base_url:
+                env["ANTHROPIC_BASE_URL"] = settings.anthropic_base_url
     if settings.claude_config_dir:
         env["CLAUDE_CONFIG_DIR"] = settings.claude_config_dir
     env["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"] = "0"
