@@ -15,6 +15,8 @@
 | 2026-11-15 12:26 | dYdX: голосование по переносу обеспечения USDC с Noble на Injective (`posts/151126/2026-11-15-122423-crypto-ai-social-content/`) | https://vk.com/wall-243080370_35 | https://x.com/Rompetr78/status/2121822524371804364 | https://t.me/defidexmind/15 |
 | 2026-11-15 17:42 | OpenAI ChatGPT Wallet: AI-агенты платят картой, а не криптой (`posts/151126/2026-11-15-174049-crypto-ai-social-content/`) | https://vk.com/wall-243080370_36 | https://x.com/Rompetr78/status/2121909187181514793 | https://t.me/defidexmind/16 |
 | 2026-11-16 08:52 | BitGo: публичный PR и frontrunning листинга мемкоина (`posts/161126/2026-11-16-085202-crypto-ai-social-content/`) | https://vk.com/wall-243080370_37 | https://x.com/Rompetr78/status/2122134067135037652 | https://t.me/defidexmind/17 |
-| 2026-11-16 15:17 | Solflare Private Mode: конфиденциальность, не анонимность (`posts/161126/2026-11-16-103945-crypto-ai-social-content/`) | — | https://x.com/Rompetr78/status/2122227649460515150 | — |
+| 2026-11-16 15:17 | Solflare Private Mode: конфиденциальность, не анонимность (`posts/161126/2026-11-16-103945-crypto-ai-social-content/`) | https://vk.ru/wall-243080370_39 | https://x.com/Rompetr78/status/2122227649460515150 | https://t.me/defidexmind/19 |
 
 **Примечание:** VK публикуется автоматически через `wall.post`; Telegram — автоматически через `bot.py` (`sendPhoto`: текст в подписи к PNG); X — вручную из intent-ссылки, потому что X блокирует вход из автоматизированного браузера (см. память `x-publishing-constraints`).
+
+**16.11:** публикация Solflare в VK и Telegram выполнена через веб-интерфейс CRM; X — вручную.
