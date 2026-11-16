@@ -86,33 +86,51 @@
   </label>
 
   <h2>Тексты площадок</h2>
-  <p class="muted">Снимите галочку у поля, чтобы исключить его из проверки перевода и публикации.</p>
-  <label class="toggle"><input type="checkbox" name="enabled_telegram" value="1" {% if values.enabled_telegram %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить Telegram</label>
-  <label>Telegram (800–1024, без хэштегов)
-    <textarea name="telegram" rows="6" {% if not editable %}disabled{% endif %}>{{ values.telegram }}</textarea>
-  </label>
-  <label class="toggle"><input type="checkbox" name="enabled_vk" value="1" {% if values.enabled_vk %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить VK</label>
-  <label>VK (700–1500, 3–7 хэштегов)
-    <textarea name="vk" rows="6" {% if not editable %}disabled{% endif %}>{{ values.vk }}</textarea>
-  </label>
-  <label class="toggle"><input type="checkbox" name="enabled_instagram" value="1" {% if values.enabled_instagram %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить Instagram</label>
-  <label>Instagram (100–200 слов, 5–10 хэштегов)
-    <textarea name="instagram" rows="6" {% if not editable %}disabled{% endif %}>{{ values.instagram }}</textarea>
-  </label>
-  <label class="toggle"><input type="checkbox" name="enabled_x" value="1" {% if values.enabled_x %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить X</label>
-  <label>X (до 280, только английский)
-    <textarea name="x" rows="4" {% if not editable %}disabled{% endif %}>{{ values.x }}</textarea>
-  </label>
-  <label class="toggle"><input type="checkbox" name="enabled_tiktok" value="1" {% if values.enabled_tiktok %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить TikTok</label>
-  <label>TikTok (50–120 слов, 3–5 хэштегов)
-    <textarea name="tiktok" rows="5" {% if not editable %}disabled{% endif %}>{{ values.tiktok }}</textarea>
-  </label>
+  <p class="muted">Снимите галочку у поля, чтобы исключить его из проверки, перевода и публикации.</p>
+  <div class="field">
+    <div class="field-head">
+      <span class="field-title">Telegram (800–1024, без хэштегов)</span>
+      <label class="toggle"><input type="checkbox" name="enabled_telegram" value="1" data-toggle-target="field_telegram" {% if values.enabled_telegram %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить Telegram</label>
+    </div>
+    <textarea id="field_telegram" name="telegram" rows="6" {% if not editable or not values.enabled_telegram %}disabled{% endif %} class="{% if not values.enabled_telegram %}disabled-field{% endif %}">{{ values.telegram }}</textarea>
+  </div>
+  <div class="field">
+    <div class="field-head">
+      <span class="field-title">VK (700–1500, 3–7 хэштегов)</span>
+      <label class="toggle"><input type="checkbox" name="enabled_vk" value="1" data-toggle-target="field_vk" {% if values.enabled_vk %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить VK</label>
+    </div>
+    <textarea id="field_vk" name="vk" rows="6" {% if not editable or not values.enabled_vk %}disabled{% endif %} class="{% if not values.enabled_vk %}disabled-field{% endif %}">{{ values.vk }}</textarea>
+  </div>
+  <div class="field">
+    <div class="field-head">
+      <span class="field-title">Instagram (100–200 слов, 5–10 хэштегов)</span>
+      <label class="toggle"><input type="checkbox" name="enabled_instagram" value="1" data-toggle-target="field_instagram" {% if values.enabled_instagram %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить Instagram</label>
+    </div>
+    <textarea id="field_instagram" name="instagram" rows="6" {% if not editable or not values.enabled_instagram %}disabled{% endif %} class="{% if not values.enabled_instagram %}disabled-field{% endif %}">{{ values.instagram }}</textarea>
+  </div>
+  <div class="field">
+    <div class="field-head">
+      <span class="field-title">X (до 280, только английский)</span>
+      <label class="toggle"><input type="checkbox" name="enabled_x" value="1" data-toggle-target="field_x" {% if values.enabled_x %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить X</label>
+    </div>
+    <textarea id="field_x" name="x" rows="4" {% if not editable or not values.enabled_x %}disabled{% endif %} class="{% if not values.enabled_x %}disabled-field{% endif %}">{{ values.x }}</textarea>
+  </div>
+  <div class="field">
+    <div class="field-head">
+      <span class="field-title">TikTok (50–120 слов, 3–5 хэштегов)</span>
+      <label class="toggle"><input type="checkbox" name="enabled_tiktok" value="1" data-toggle-target="field_tiktok" {% if values.enabled_tiktok %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить TikTok</label>
+    </div>
+    <textarea id="field_tiktok" name="tiktok" rows="5" {% if not editable or not values.enabled_tiktok %}disabled{% endif %} class="{% if not values.enabled_tiktok %}disabled-field{% endif %}">{{ values.tiktok }}</textarea>
+  </div>
 
   <h2>Иллюстрация</h2>
-  <label class="toggle"><input type="checkbox" name="image_enabled" value="1" {% if values.image_enabled %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить image_prompt</label>
-  <label>image_prompt (английский)
-    <textarea name="image_prompt" rows="4" {% if not editable %}disabled{% endif %}>{{ values.image_prompt }}</textarea>
-  </label>
+  <div class="field">
+    <div class="field-head">
+      <span class="field-title">image_prompt (английский)</span>
+      <label class="toggle"><input type="checkbox" name="image_enabled" value="1" data-toggle-target="field_image_prompt" {% if values.image_enabled %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить image_prompt</label>
+    </div>
+    <textarea id="field_image_prompt" name="image_prompt" rows="4" {% if not editable or not values.image_enabled %}disabled{% endif %} class="{% if not values.image_enabled %}disabled-field{% endif %}">{{ values.image_prompt }}</textarea>
+  </div>
 
   {% if editable %}
     <div class="actions">
@@ -228,4 +246,5 @@
 <p><a href="/drafts">Назад к черновикам</a></p>
 <script src="/static/js/publisher.js" defer></script>
 <script src="/static/js/job_wait.js" defer></script>
+<script src="/static/js/draft_toggles.js" defer></script>
 {% endblock %}

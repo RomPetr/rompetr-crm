@@ -330,4 +330,6 @@ def test_platform_toggles_exclude_disabled_fields(client):
 
     page = client.get(f"/drafts/{post_id}")
     assert 'name="enabled_vk"' in page.text
+    assert 'id="field_vk"' in page.text
+    assert "disabled-field" in page.text
     assert "На проверку" not in page.text

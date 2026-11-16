@@ -221,3 +221,20 @@ select {
   margin: 4px 0;
 }
 .toggle input { width: 16px; height: 16px; }
+
+.field { display: grid; gap: 6px; }
+.field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.field-title { color: var(--muted); font-size: 14px; }
+.field-head .toggle { margin: 0; }
+.disabled-field {
+  background: #1a1a1a !important;
+  color: #6b6b6b !important;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
