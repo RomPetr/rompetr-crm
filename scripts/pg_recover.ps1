@@ -65,18 +65,25 @@ try {
         $env:USERNAME,
         "$env:USERDOMAIN\$env:USERNAME"
     ) | Select-Object -Unique
+
     $super = $null
-    foreach ($candidate in $candidates) {
-        $isSuper = & "$PgBin\psql.exe" -w -U $candidate -d postgres -tAc `
-            "select rolsuper from pg_roles where rolname = current_user" 2>$null
-        if ($LASTEXITCODE -eq 0 -and $isSuper -and $isSuper.Trim() -eq "t") {
-            $super = $candidate
-            break
+    $previousEa = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        foreach ($candidate in $candidates) {
+            $isSuper = & "$PgBin\psql.exe" -w -h 127.0.0.1 -U $candidate -d postgres -tAc `
+                "select rolsuper from pg_roles where rolname = current_user" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $isSuper -and $isSuper.Trim() -eq "t") {
+                $super = $candidate
+                break
+            }
         }
+    } finally {
+        $ErrorActionPreference = $previousEa
     }
 
     if (-not $super) {
-        $roles = & "$PgBin\psql.exe" -w -U postgres -d postgres -tAc `
+        $roles = & "$PgBin\psql.exe" -w -h 127.0.0.1 -U postgres -d postgres -tAc `
             "select rolname from pg_authid order by 1" 2>$null
         throw "No superuser role found among candidates. Roles visible: $roles"
     }
@@ -92,7 +99,7 @@ ALTER ROLE rompetr_app WITH LOGIN PASSWORD '$(Escape-Sql $appPass)';
     [IO.File]::WriteAllText($tmp, $sql, (New-Object Text.UTF8Encoding $false))
 
     try {
-        & "$PgBin\psql.exe" -w -v ON_ERROR_STOP=1 -U $super -d postgres -f $tmp
+        & "$PgBin\psql.exe" -w -h 127.0.0.1 -v ON_ERROR_STOP=1 -U $super -d postgres -f $tmp
         if ($LASTEXITCODE -ne 0) { throw "psql failed with exit code $LASTEXITCODE" }
     } finally {
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
