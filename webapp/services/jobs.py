@@ -20,6 +20,16 @@ def _key(post: Post, job_type: str, extra: str = "") -> str:
     return f"{post.public_id}:generate_image:{digest}"
 
 
+def _active_job(db: Session, post: Post, job_type: str) -> Job | None:
+    return db.execute(
+        select(Job).where(
+            Job.post_id == post.id,
+            Job.type == job_type,
+            Job.status.in_(["queued", "running"]),
+        )
+    ).scalars().first()
+
+
 def enqueue(
     db: Session,
     job_type: str,
@@ -31,10 +41,29 @@ def enqueue(
 ) -> Job:
     if job_type not in JOB_TYPES:
         raise ValueError(f"Неизвестный тип задачи: {job_type}")
-    key = idempotency_key or _key(post, job_type)
+
+    active = _active_job(db, post, job_type)
+    if active is not None:
+        return active
+
+    if job_type == "generate_image" and idempotency_key is None:
+        key = f"{post.public_id}:generate_image:{uuid.uuid4().hex}"
+    else:
+        key = idempotency_key or _key(post, job_type)
+
     existing = db.execute(select(Job).where(Job.idempotency_key == key)).scalar_one_or_none()
-    if existing is not None and existing.status in {"queued", "running", "succeeded"}:
+    if existing is not None:
+        if existing.status in {"queued", "running", "succeeded"}:
+            return existing
+        existing.status = "queued"
+        existing.attempts = 0
+        existing.error = None
+        existing.locked_by = None
+        existing.locked_at = None
+        existing.available_at = datetime.now(timezone.utc)
+        db.flush()
         return existing
+
     job = Job(
         public_id=str(uuid.uuid4()),
         type=job_type,

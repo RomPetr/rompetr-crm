@@ -111,3 +111,46 @@ def test_ai_check_job_updates_post(monkeypatch):
         assert post.version == old_version + 1
     finally:
         db.close()
+
+
+def test_regenerate_after_success_creates_new_job(monkeypatch):
+    monkeypatch.setattr(
+        "webapp.services.images.generate",
+        lambda db, post, user_id: SimpleNamespace(id=1, storage_key="posts/a/b.png", bytes=1),
+    )
+    db = SessionLocal()
+    try:
+        post = make_draft(db, "Regenerate image")
+        first = jobs.enqueue(db, "generate_image", post, created_by=0)
+        db.commit()
+        claimed = jobs.claim_next(db, "w")
+        jobs.succeed(db, claimed, result={"asset_id": 1})
+        db.commit()
+
+        second = jobs.enqueue(db, "generate_image", post, created_by=0)
+        db.commit()
+        assert second.id != first.id
+        assert second.status == "queued"
+    finally:
+        db.close()
+
+
+def test_failed_ai_check_requeues_same_job():
+    db = SessionLocal()
+    try:
+        post = make_draft(db, "Retry AI check")
+        job = jobs.enqueue(db, "ai_check", post, created_by=0)
+        db.commit()
+        claimed = jobs.claim_next(db, "w")
+        claimed.attempts = claimed.max_attempts
+        jobs.fail(db, claimed, "boom", retry=False)
+        db.commit()
+        assert claimed.status == "failed"
+
+        again = jobs.enqueue(db, "ai_check", post, created_by=0)
+        db.commit()
+        assert again.id == job.id
+        assert again.status == "queued"
+        assert again.attempts == 0
+    finally:
+        db.close()
