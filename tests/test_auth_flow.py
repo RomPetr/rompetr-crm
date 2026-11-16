@@ -89,3 +89,26 @@ def test_admin_id_zero_is_protected_in_ui(client):
     page = client.get("/admin/users")
     assert page.status_code == 200
     assert "защищён" in page.text
+
+
+def test_admin_dashboard_links_and_user_filter(client):
+    token = csrf(client)
+    login = client.post(
+        "/login",
+        data={"csrf_token": token, "username": "admin", "password": "test-admin-password-12345"},
+        follow_redirects=False,
+    )
+    assert login.status_code == 303
+
+    page = client.get("/admin")
+    assert page.status_code == 200
+    assert 'href="/admin/users"' in page.text
+    assert 'href="/admin/users?status=pending"' in page.text
+    assert 'href="/admin/tickets"' in page.text
+    assert 'href="/admin/posts"' in page.text
+    assert 'href="/admin/jobs"' in page.text
+
+    users = client.get("/admin/users?status=pending")
+    assert users.status_code == 200
+    assert "Фильтр: статус" in users.text
+    assert "Имя / логин" in users.text

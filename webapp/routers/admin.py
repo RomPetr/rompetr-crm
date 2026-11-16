@@ -45,9 +45,24 @@ def overview(request: Request, db: Session = Depends(get_db), admin: User = Depe
 
 
 @router.get("/users")
-def users_list(request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
-    users = db.execute(select(User).order_by(User.id)).scalars().all()
-    return render(request, "admin/users.html", admin=admin, users=users)
+def users_list(
+    request: Request,
+    status: str = "",
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    stmt = select(User).order_by(User.id)
+    allowed = {"pending", "active", "blocked", "deleted"}
+    if status in allowed:
+        stmt = stmt.where(User.status == status)
+    users = db.execute(stmt).scalars().all()
+    return render(
+        request,
+        "admin/users.html",
+        admin=admin,
+        users=users,
+        status_filter=status if status in allowed else "",
+    )
 
 
 @router.post("/users/{user_id}/approve")

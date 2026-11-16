@@ -193,3 +193,6 @@ select {
 }
 .publisher-home label { flex: 1 1 320px; }
 .publisher-home a { color: var(--accent-2); word-break: break-all; padding-bottom: 10px; }
+
+.stat-link { color: inherit; text-decoration: none; }
+.stat-link:hover h2 { color: var(--accent-2); text-decoration: underline; }

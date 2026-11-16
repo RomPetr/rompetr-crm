@@ -2,11 +2,12 @@
 {% block title %}Пользователи — админка{% endblock %}
 {% block content %}
 <h1>Пользователи</h1>
-<p class="muted">ID 0 — неизменяемый администратор. Новые пользователи приходят как guest и ждут одобрения.</p>
+{% if status_filter %}<p class="muted">Фильтр: статус «{{ status_filter }}». <a href="/admin/users">Показать всех</a></p>{% endif %}
+<p class="muted">ID 0 — неизменяемый администратор. Новые пользователи приходят как guest и ждут одобрения. Роли: guest, user, admin; роль moderator появится позже.</p>
 <div class="table-wrap">
 <table class="table">
   <thead>
-    <tr><th>ID</th><th>Логин</th><th>E-mail</th><th>Роль</th><th>Статус</th><th>E-mail</th><th>Действия</th></tr>
+    <tr><th>ID</th><th>Имя / логин</th><th>E-mail</th><th>Роль</th><th>Статус</th><th>E-mail подтверждён</th><th>Действия</th></tr>
   </thead>
   <tbody>
   {% for u in users %}

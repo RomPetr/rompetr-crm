@@ -4,11 +4,26 @@
 <h1>Админка</h1>
 <p class="muted">ID {{ admin.id }} · {{ admin.login }}</p>
 <div class="grid">
-  <article class="card"><h2>{{ counts.users }}</h2><p>Пользователей</p></article>
-  <article class="card"><h2>{{ counts.pending }}</h2><p>Ожидают подтверждения</p></article>
-  <article class="card"><h2>{{ counts.tickets }}</h2><p>Открытых тикетов</p></article>
-  <article class="card"><h2>{{ counts.posts }}</h2><p>Постов</p></article>
-  <article class="card"><h2>{{ counts.jobs }}</h2><p>Задач в очереди</p></article>
+  <article class="card">
+    <a class="stat-link" href="/admin/users"><h2>{{ counts.users }}</h2></a>
+    <p>Пользователей</p>
+  </article>
+  <article class="card">
+    <a class="stat-link" href="/admin/users?status=pending"><h2>{{ counts.pending }}</h2></a>
+    <p>Ожидают подтверждения</p>
+  </article>
+  <article class="card">
+    <a class="stat-link" href="/admin/tickets"><h2>{{ counts.tickets }}</h2></a>
+    <p>Открытых тикетов</p>
+  </article>
+  <article class="card">
+    <a class="stat-link" href="/admin/posts"><h2>{{ counts.posts }}</h2></a>
+    <p>Постов</p>
+  </article>
+  <article class="card">
+    <a class="stat-link" href="/admin/jobs"><h2>{{ counts.jobs }}</h2></a>
+    <p>Задач в очереди</p>
+  </article>
 </div>
 <section class="card note">
   <p><a href="/admin/users">Пользователи</a> · <a href="/admin/tickets">Тикеты</a> · <a href="/admin/posts">Посты</a> · <a href="/admin/publications">Публикации</a> · <a href="/admin/jobs">Задачи</a></p>
