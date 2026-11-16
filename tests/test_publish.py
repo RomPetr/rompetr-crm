@@ -115,3 +115,28 @@ def test_unknown_is_not_retried(monkeypatch):
         assert telegram_pub.status == "unknown"
     finally:
         db.close()
+
+
+def test_scheduler_publishes_due_posts(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    from webapp.services.scheduler import publish_due
+
+    db = SessionLocal()
+    try:
+        post = make_approved_post(db, "Scheduled post")
+        post.scheduled_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+        db.commit()
+
+        seen = []
+
+        def fake_publish(db_session, target, actor):
+            seen.append(target.id)
+            return [SimpleNamespace(platform="vk", status="published")]
+
+        monkeypatch.setattr("webapp.services.publish.publish_post", fake_publish)
+        results = publish_due(db)
+        assert seen == [post.id]
+        assert results and results[0][0] == post.id
+    finally:
+        db.close()
