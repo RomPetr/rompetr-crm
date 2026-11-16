@@ -9,7 +9,7 @@ from webapp.db import get_db
 from webapp.deps import csrf_protect, require_user
 from webapp.models.content import Asset, Post, Publication
 from webapp.models.user import User
-from webapp.services import audit, media, posts
+from webapp.services import audit, jobs, media, posts
 from webapp.services import publish as publish_service
 from webapp.templating import render
 
@@ -234,3 +234,27 @@ def archive_draft(post_id: int, request: Request, db: Session = Depends(get_db))
     audit.log_action(db, "post.archived", actor_id=user.id, entity_type="post", entity_id=str(post.id))
     db.commit()
     return RedirectResponse("/drafts", status_code=303)
+
+
+@router.post("/drafts/{post_id}/ai-check")
+def enqueue_ai_check(post_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    if not posts.can_edit(post, user):
+        raise HTTPException(status_code=403)
+    job = jobs.enqueue(db, "ai_check", post, created_by=user.id)
+    audit.log_action(db, "post.ai_check_queued", actor_id=user.id, entity_type="post", entity_id=str(post.id))
+    db.commit()
+    return RedirectResponse(f"/drafts/{post_id}?ok=queued_ai&job={job.id}", status_code=303)
+
+
+@router.post("/drafts/{post_id}/generate-image")
+def enqueue_generate_image(post_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    if not posts.can_edit(post, user):
+        raise HTTPException(status_code=403)
+    job = jobs.enqueue(db, "generate_image", post, created_by=user.id)
+    audit.log_action(db, "post.image_queued", actor_id=user.id, entity_type="post", entity_id=str(post.id))
+    db.commit()
+    return RedirectResponse(f"/drafts/{post_id}?ok=queued_image&job={job.id}", status_code=303)

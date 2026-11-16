@@ -28,6 +28,10 @@ def save_image(db: Session, post: Post, upload: UploadFile, user_id: int | None)
     if not raw:
         raise HTTPException(status_code=400, detail="Пустой файл")
 
+    return save_bytes(db, post, raw, user_id)
+
+
+def save_bytes(db: Session, post: Post, raw: bytes, user_id: int | None) -> Asset:
     try:
         Image.open(io.BytesIO(raw)).verify()
         image = Image.open(io.BytesIO(raw))

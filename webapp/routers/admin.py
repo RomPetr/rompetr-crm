@@ -280,3 +280,60 @@ def mark_publication_published(
     )
     db.commit()
     return RedirectResponse("/admin/publications", status_code=303)
+
+
+@router.get("/jobs")
+def jobs_list(request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    from webapp.models.system import Job
+
+    rows = db.execute(
+        select(Job, Post)
+        .join(Post, Post.id == Job.post_id, isouter=True)
+        .order_by(Job.id.desc())
+        .limit(200)
+    ).all()
+    return render(request, "admin/jobs.html", admin=admin, rows=rows)
+
+
+@router.post("/jobs/{job_id}/retry")
+def retry_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from webapp.models.system import Job
+
+    job = db.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404)
+    if job.status not in {"failed", "timeout", "cancelled"}:
+        raise HTTPException(status_code=400, detail="Повтор доступен для failed/timeout/cancelled")
+    job.status = "queued"
+    job.attempts = 0
+    job.locked_by = None
+    job.locked_at = None
+    job.error = None
+    job.available_at = datetime.now(timezone.utc)
+    audit.log_action(db, "admin.job_retry", actor_id=admin.id, entity_type="job", entity_id=str(job.id))
+    db.commit()
+    return RedirectResponse("/admin/jobs", status_code=303)
+
+
+@router.post("/jobs/{job_id}/cancel")
+def cancel_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from webapp.models.system import Job
+
+    job = db.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404)
+    if job.status != "queued":
+        raise HTTPException(status_code=400, detail="Отменить можно только задачу в очереди")
+    job.status = "cancelled"
+    job.finished_at = datetime.now(timezone.utc)
+    audit.log_action(db, "admin.job_cancelled", actor_id=admin.id, entity_type="job", entity_id=str(job.id))
+    db.commit()
+    return RedirectResponse("/admin/jobs", status_code=303)

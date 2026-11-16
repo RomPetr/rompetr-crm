@@ -12,6 +12,8 @@
 {% if message == "image" %}<p class="ok">Изображение загружено.</p>{% endif %}
 {% if message == "image_deleted" %}<p class="ok">Изображение удалено.</p>{% endif %}
 {% if message == "published" %}<p class="ok">Публикация выполнена.</p>{% endif %}
+{% if message == "queued_ai" %}<p class="ok">AI-проверка поставлена в очередь.</p>{% endif %}
+{% if message == "queued_image" %}<p class="ok">Генерация изображения поставлена в очередь.</p>{% endif %}
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 {% if check_errors %}
   <div class="error">
@@ -106,6 +108,18 @@
     <h2>Модерация</h2>
     <p class="muted">Отправить админу на одобрение.</p>
     <button class="button secondary" type="submit">На проверку</button>
+  </form>
+  <form method="post" action="/drafts/{{ post.id }}/ai-check" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <h2>AI-проверка</h2>
+    <p class="muted">Checker в отдельной задаче. Нужен запущенный worker.</p>
+    <button class="button secondary" type="submit">Поставить в очередь</button>
+  </form>
+  <form method="post" action="/drafts/{{ post.id }}/generate-image" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <h2>Сгенерировать PNG</h2>
+    <p class="muted">Flux.2-pro по image_prompt, резерв gpt-image-1-mini. Нужен worker.</p>
+    <button class="button secondary" type="submit">Поставить в очередь</button>
   </form>
   <form method="post" action="/drafts/{{ post.id }}/assets" enctype="multipart/form-data" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
