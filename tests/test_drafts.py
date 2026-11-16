@@ -151,3 +151,19 @@ def test_guest_cannot_publish(client):
     post_id = int(created.headers["location"].rstrip("/").split("/")[-1])
     publish = client.post(f"/drafts/{post_id}/publish", data={"csrf_token": token})
     assert publish.status_code == 403
+
+
+def test_publisher_homepage_field(client):
+    login(client, "admin", "test-admin-password-12345")
+    token = csrf(client)
+    created = client.post(
+        "/drafts/new", data={"csrf_token": token, "title": "Проверка ссылки издания"}, follow_redirects=False
+    )
+    post_id = int(created.headers["location"].rstrip("/").split("/")[-1])
+    page = client.get(f"/drafts/{post_id}")
+    assert 'id="publisher-url"' in page.text
+    assert 'id="publisher-link"' in page.text
+    assert "/static/js/publisher.js" in page.text
+    script = client.get("/static/js/publisher.js")
+    assert script.status_code == 200
+    assert "theblock.co" in script.text

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}{{ post.title or "Черновик" }}{% endblock %}
+{% block title %}{{ post.title or "Черновик" }}<script src="/static/js/publisher.js" defer></script>
+{% endblock %}
 {% block content %}
 <div class="head-row">
   <h1>{{ post.title or "Без названия" }}</h1>
@@ -37,13 +38,20 @@
     <input name="source_url" type="url" value="{{ values.source_url }}" {% if not editable %}disabled{% endif %}>
   </label>
   <label>Издание
-    <select name="source_publisher" {% if not editable %}disabled{% endif %}>
+    <select name="source_publisher" data-publisher-select {% if not editable %}disabled{% endif %}>
       <option value="">—</option>
       {% for name in ["The Block", "The Defiant", "Blockworks", "CoinDesk", "Decrypt"] %}
         <option value="{{ name }}" {% if values.source_publisher == name %}selected{% endif %}>{{ name }}</option>
       {% endfor %}
     </select>
   </label>
+  <div class="publisher-home">
+    <label>Главная страница издания
+      <input id="publisher-url" readonly placeholder="Выберите издание" value="">
+    </label>
+    <button class="button small secondary" type="button" id="publisher-copy" hidden>Скопировать</button>
+    <a id="publisher-link" href="#" target="_blank" rel="noopener" hidden></a>
+  </div>
   <label>Дата публикации
     <input name="source_published_at" type="date" value="{{ values.source_published_at }}" {% if not editable %}disabled{% endif %}>
   </label>
@@ -121,4 +129,5 @@
 {% endif %}
 
 <p><a href="/drafts">Назад к черновикам</a></p>
+<script src="/static/js/publisher.js" defer></script>
 {% endblock %}
