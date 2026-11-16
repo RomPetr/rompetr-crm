@@ -3,6 +3,7 @@
 **Домен:** rompetr.ru · **Прод:** отдельный VPS Debian 12 · **Статус:** этап 0
 **Полная версия плана:** `C:\Users\rp\.claude\plans\agile-painting-thacker.md`
 **Машинная спецификация:** `.claude/plans/crm-web-platform.yaml`
+**Журнал и чек-лист деплоя:** `docs/DEPLOY-JOURNAL.md`
 
 ---
 

@@ -31,6 +31,7 @@ uvicorn webapp.main:app --reload
 
 - Человекочитаемый план и чек-лист: `docs/CRM-PLAN.md`
 - Машинная спецификация: `.claude/plans/crm-web-platform.yaml`
+- Журнал разработки и чек-лист деплоя: `docs/DEPLOY-JOURNAL.md`
 
 ## Безопасность
 
