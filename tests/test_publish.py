@@ -9,12 +9,13 @@ from webapp.services import posts, publish
 
 
 def texts() -> dict[str, str]:
+    link = "\n\nhttps://www.theblock.co/"
     return {
-        "telegram": "Т" * 850,
-        "vk": ("В" * 700) + " #криптовалюта #DeFi #DEX #onchain #мемкоины #аналитика",
-        "instagram": ("слово " * 120) + "#crypto #defi #web3 #onchain #ai #dex",
-        "x": "English text under two hundred eighty characters. " * 4,
-        "tiktok": ("видео " * 70) + "#crypto #defi #onchain #web3",
+        "telegram": ("Т" * 850) + link,
+        "vk": ("В" * 700) + " #криптовалюта #DeFi #DEX #onchain #мемкоины #аналитика" + link,
+        "instagram": ("слово " * 120) + "#crypto #defi #web3 #onchain #ai #dex" + link,
+        "x": ("English text under two hundred eighty characters. " * 4) + link,
+        "tiktok": ("видео " * 70) + "#crypto #defi #onchain #web3" + link,
     }
 
 

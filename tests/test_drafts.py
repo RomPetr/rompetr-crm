@@ -15,18 +15,20 @@ def csrf(client) -> str:
 
 
 def texts() -> dict[str, str]:
+    link = "\n\nhttps://www.theblock.co/"
     return {
-        "telegram": "Т" * 850,
-        "vk": ("В" * 700) + " #криптовалюта #DeFi #DEX #onchain #мемкоины #аналитика",
-        "instagram": (" ".join(["слово"] * 120)) + " #crypto #defi #web3 #onchain #ai #dex",
-        "x": "English text under two hundred eighty characters. " * 4,
-        "tiktok": (" ".join(["видео"] * 70)) + " #crypto #defi #onchain #web3",
+        "telegram": ("Т" * 850) + link,
+        "vk": ("В" * 700) + " #криптовалюта #DeFi #DEX #onchain #мемкоины #аналитика" + link,
+        "instagram": (" ".join(["слово"] * 120)) + " #crypto #defi #web3 #onchain #ai #dex" + link,
+        "x": ("English text under two hundred eighty characters. " * 4) + link,
+        "tiktok": (" ".join(["видео"] * 70)) + " #crypto #defi #onchain #web3" + link,
     }
 
 
 def test_validator_limits():
     good = texts()
     assert validate_platforms(good) == []
+    assert validate_platforms(good, "The Block") == []
 
     bad = dict(good)
     bad["x"] = "Кириллица в X"
@@ -35,6 +37,10 @@ def test_validator_limits():
     bad = dict(good)
     bad["telegram"] = "коротко"
     assert any("telegram" in item for item in validate_platforms(bad))
+
+    bad = dict(good)
+    bad["vk"] = bad["vk"].replace("https://www.theblock.co/", "")
+    assert any("ссылку на главную" in item for item in validate_platforms(bad, "The Block"))
 
 
 def form_payload(token: str, version: int) -> dict:

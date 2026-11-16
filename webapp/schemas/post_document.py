@@ -6,6 +6,13 @@ from datetime import date
 from pydantic import BaseModel, HttpUrl, field_validator
 
 PUBLISHERS = {"The Block", "The Defiant", "Blockworks", "CoinDesk", "Decrypt"}
+PUBLISHER_HOMEPAGES = {
+    "The Block": "https://www.theblock.co/",
+    "The Defiant": "https://thedefiant.io/",
+    "Blockworks": "https://blockworks.co/",
+    "CoinDesk": "https://www.coindesk.com/",
+    "Decrypt": "https://decrypt.co/",
+}
 SCHEMA_VERSION = "crypto-ai-social-content/v1"
 
 SECRET_PATTERNS = (
@@ -98,9 +105,16 @@ def _common_checks(text: str, platform: str) -> list[str]:
     return errors
 
 
-def validate_platforms(platforms: dict[str, str]) -> list[str]:
+def validate_platforms(platforms: dict[str, str], publisher: str | None = None) -> list[str]:
     """Проверяет тексты площадок без требования полного документа."""
     errors: list[str] = []
+
+    if publisher:
+        homepage = PUBLISHER_HOMEPAGES.get(publisher)
+        if homepage:
+            for name, text in platforms.items():
+                if homepage not in text:
+                    errors.append(f"{name}: добавьте ссылку на главную источника {homepage}")
 
     telegram = platforms.get("telegram", "")
     if not 800 <= len(telegram) <= 1024:
@@ -143,7 +157,7 @@ def validate_platforms(platforms: dict[str, str]) -> list[str]:
 def validate_document(source: dict, image_prompt: str, platforms: dict[str, str]) -> list[str]:
     from pydantic import ValidationError
 
-    errors = validate_platforms(platforms)
+    errors = validate_platforms(platforms, source.get("publisher"))
     try:
         Source(**source)
     except ValidationError as exc:
