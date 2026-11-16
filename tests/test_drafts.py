@@ -296,6 +296,7 @@ def test_job_wait_panel(client):
 
     done = client.get(queued.headers["location"])
     assert "завершена" in done.text
+    assert "AI-перевод и проверка выполнены" in done.text
 
 
 def test_platform_toggles_exclude_disabled_fields(client):
@@ -333,3 +334,42 @@ def test_platform_toggles_exclude_disabled_fields(client):
     assert 'id="field_vk"' in page.text
     assert "disabled-field" in page.text
     assert "На проверку" not in page.text
+
+
+def test_ai_change_badge(client):
+    import uuid
+
+    from webapp.db import SessionLocal
+    from webapp.models.content import Post
+    from webapp.models.system import Job
+
+    login(client, "admin", "test-admin-password-12345")
+    token = csrf(client)
+    created = client.post(
+        "/drafts/new", data={"csrf_token": token, "title": "С меткой правки"}, follow_redirects=False
+    )
+    post_id = int(created.headers["location"].rstrip("/").split("/")[-1])
+
+    db = SessionLocal()
+    try:
+        post = db.get(Post, post_id)
+        old_version = post.version
+        post.version += 1
+        db.add(
+            Job(
+                public_id=str(uuid.uuid4()),
+                type="ai_check",
+                status="succeeded",
+                post_id=post.id,
+                post_version=old_version,
+                payload={"result": {"changes": {"telegram": "fixed"}}},
+                idempotency_key=f"test-badge-{uuid.uuid4().hex}",
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    page = client.get(f"/drafts/{post_id}")
+    assert "Исправлено" in page.text
+    assert "changed-field" in page.text

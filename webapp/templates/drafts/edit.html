@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% set ai = ai_changes if ai_changes is defined and ai_changes else {} %}
 {% block title %}{{ post.title or "Черновик" }}
 {% endblock %}
 {% block content %}
@@ -14,7 +15,11 @@
 {% if message == "published" %}<p class="ok">Публикация выполнена.</p>{% endif %}
 {% if completed_job %}
   {% if completed_job.status == "succeeded" %}
-    <p class="ok">Задача #{{ completed_job.id }} завершена: {{ "AI-перевод" if completed_job.type == "ai_check" else "генерация изображения" }} выполнена.</p>
+    {% if completed_job.type == "ai_check" %}
+      <p class="ok">Задача #{{ completed_job.id }} завершена: AI-перевод и проверка выполнены.</p>
+    {% else %}
+      <p class="ok">Задача #{{ completed_job.id }} завершена: генерация изображения выполнена.</p>
+    {% endif %}
   {% else %}
     <p class="error">Задача #{{ completed_job.id }} завершилась со статусом {{ completed_job.status }}{% if completed_job.error %}: {{ completed_job.error[:300] }}{% endif %}</p>
   {% endif %}
@@ -90,46 +95,52 @@
   <div class="field">
     <div class="field-head">
       <span class="field-title">Telegram (800–1024, без хэштегов)</span>
+      {% if ai.get("telegram") %}<span class="change-badge">{{ "Переведено" if ai.get("telegram") == "translated" else "Исправлено" }}</span>{% endif %}
       <label class="toggle"><input type="checkbox" name="enabled_telegram" value="1" data-toggle-target="field_telegram" {% if values.enabled_telegram %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить Telegram</label>
     </div>
-    <textarea id="field_telegram" name="telegram" rows="6" {% if not editable or not values.enabled_telegram %}disabled{% endif %} class="{% if not values.enabled_telegram %}disabled-field{% endif %}">{{ values.telegram }}</textarea>
+    <textarea id="field_telegram" name="telegram" rows="6" {% if not editable or not values.enabled_telegram %}disabled{% endif %} class="{% if not values.enabled_telegram %}disabled-field{% endif %}{% if ai.get("telegram") %} changed-field{% endif %}">{{ values.telegram }}</textarea>
   </div>
   <div class="field">
     <div class="field-head">
       <span class="field-title">VK (700–1500, 3–7 хэштегов)</span>
+      {% if ai.get("vk") %}<span class="change-badge">{{ "Переведено" if ai.get("vk") == "translated" else "Исправлено" }}</span>{% endif %}
       <label class="toggle"><input type="checkbox" name="enabled_vk" value="1" data-toggle-target="field_vk" {% if values.enabled_vk %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить VK</label>
     </div>
-    <textarea id="field_vk" name="vk" rows="6" {% if not editable or not values.enabled_vk %}disabled{% endif %} class="{% if not values.enabled_vk %}disabled-field{% endif %}">{{ values.vk }}</textarea>
+    <textarea id="field_vk" name="vk" rows="6" {% if not editable or not values.enabled_vk %}disabled{% endif %} class="{% if not values.enabled_vk %}disabled-field{% endif %}{% if ai.get("vk") %} changed-field{% endif %}">{{ values.vk }}</textarea>
   </div>
   <div class="field">
     <div class="field-head">
       <span class="field-title">Instagram (100–200 слов, 5–10 хэштегов)</span>
+      {% if ai.get("instagram") %}<span class="change-badge">{{ "Переведено" if ai.get("instagram") == "translated" else "Исправлено" }}</span>{% endif %}
       <label class="toggle"><input type="checkbox" name="enabled_instagram" value="1" data-toggle-target="field_instagram" {% if values.enabled_instagram %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить Instagram</label>
     </div>
-    <textarea id="field_instagram" name="instagram" rows="6" {% if not editable or not values.enabled_instagram %}disabled{% endif %} class="{% if not values.enabled_instagram %}disabled-field{% endif %}">{{ values.instagram }}</textarea>
+    <textarea id="field_instagram" name="instagram" rows="6" {% if not editable or not values.enabled_instagram %}disabled{% endif %} class="{% if not values.enabled_instagram %}disabled-field{% endif %}{% if ai.get("instagram") %} changed-field{% endif %}">{{ values.instagram }}</textarea>
   </div>
   <div class="field">
     <div class="field-head">
       <span class="field-title">X (до 280, только английский)</span>
+      {% if ai.get("x") %}<span class="change-badge">{{ "Переведено" if ai.get("x") == "translated" else "Исправлено" }}</span>{% endif %}
       <label class="toggle"><input type="checkbox" name="enabled_x" value="1" data-toggle-target="field_x" {% if values.enabled_x %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить X</label>
     </div>
-    <textarea id="field_x" name="x" rows="4" {% if not editable or not values.enabled_x %}disabled{% endif %} class="{% if not values.enabled_x %}disabled-field{% endif %}">{{ values.x }}</textarea>
+    <textarea id="field_x" name="x" rows="4" {% if not editable or not values.enabled_x %}disabled{% endif %} class="{% if not values.enabled_x %}disabled-field{% endif %}{% if ai.get("x") %} changed-field{% endif %}">{{ values.x }}</textarea>
   </div>
   <div class="field">
     <div class="field-head">
       <span class="field-title">TikTok (50–120 слов, 3–5 хэштегов)</span>
+      {% if ai.get("tiktok") %}<span class="change-badge">{{ "Переведено" if ai.get("tiktok") == "translated" else "Исправлено" }}</span>{% endif %}
       <label class="toggle"><input type="checkbox" name="enabled_tiktok" value="1" data-toggle-target="field_tiktok" {% if values.enabled_tiktok %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить TikTok</label>
     </div>
-    <textarea id="field_tiktok" name="tiktok" rows="5" {% if not editable or not values.enabled_tiktok %}disabled{% endif %} class="{% if not values.enabled_tiktok %}disabled-field{% endif %}">{{ values.tiktok }}</textarea>
+    <textarea id="field_tiktok" name="tiktok" rows="5" {% if not editable or not values.enabled_tiktok %}disabled{% endif %} class="{% if not values.enabled_tiktok %}disabled-field{% endif %}{% if ai.get("tiktok") %} changed-field{% endif %}">{{ values.tiktok }}</textarea>
   </div>
 
   <h2>Иллюстрация</h2>
   <div class="field">
     <div class="field-head">
       <span class="field-title">image_prompt (английский)</span>
+      {% if ai.get("image_prompt") %}<span class="change-badge">Исправлено</span>{% endif %}
       <label class="toggle"><input type="checkbox" name="image_enabled" value="1" data-toggle-target="field_image_prompt" {% if values.image_enabled %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить image_prompt</label>
     </div>
-    <textarea id="field_image_prompt" name="image_prompt" rows="4" {% if not editable or not values.image_enabled %}disabled{% endif %} class="{% if not values.image_enabled %}disabled-field{% endif %}">{{ values.image_prompt }}</textarea>
+    <textarea id="field_image_prompt" name="image_prompt" rows="4" {% if not editable or not values.image_enabled %}disabled{% endif %} class="{% if not values.image_enabled %}disabled-field{% endif %}{% if ai.get('image_prompt') %} changed-field{% endif %}">{{ values.image_prompt }}</textarea>
   </div>
 
   {% if editable %}

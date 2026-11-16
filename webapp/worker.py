@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import signal
 import sys
 import threading
@@ -90,6 +91,13 @@ def run_ai_check(db: Session, job: Job) -> dict:
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / "post.json"
     path.write_text(json.dumps(document_for(post), ensure_ascii=False, indent=2), encoding="utf-8")
+    enabled = posts_service.enabled_map(post)
+    before = {
+        name: (post.platforms or {}).get(name, "")
+        for name in PLATFORMS
+        if enabled.get(name)
+    }
+    before_image = post.image_prompt if post.image_enabled else ""
 
     result = claude_runner.run(_check_prompt(path), job.public_id)
     if result.timed_out:
@@ -107,8 +115,23 @@ def run_ai_check(db: Session, job: Job) -> dict:
     except (ValidationError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"Checker вернул невалидный JSON: {exc}") from exc
 
+    changes: dict[str, str] = {}
+    for name, old_text in before.items():
+        item = getattr(document.platforms, name, None)
+        if item is None or item.content == old_text:
+            continue
+        had_cyrillic = bool(re.search(r"[А-Яа-яЁё]", old_text))
+        has_cyrillic = bool(re.search(r"[А-Яа-яЁё]", item.content))
+        changes[name] = "translated" if not had_cyrillic and has_cyrillic else "fixed"
+    if post.image_enabled and document.image_prompt and document.image_prompt != before_image:
+        changes["image_prompt"] = "fixed"
+
     _apply_document(post, document)
-    return {"verdict": (result.parsed or {}).get("result", "unknown")[:1000], "log": result.log_path}
+    return {
+        "verdict": (result.parsed or {}).get("result", "unknown")[:1000],
+        "changes": changes,
+        "log": result.log_path,
+    }
 
 
 def run_generate_image(db: Session, job: Job) -> dict:

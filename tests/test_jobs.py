@@ -121,6 +121,7 @@ def test_ai_check_job_updates_post(monkeypatch):
         assert job.status == "succeeded"
         assert post.platforms["telegram"].startswith("Исправленный текст.")
         assert post.version == old_version + 1
+        assert job.payload["result"]["changes"]["telegram"] == "fixed"
     finally:
         db.close()
 

@@ -80,6 +80,15 @@ def edit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
     post = _get_post(db, post_id, user)
     asset = media.primary_asset(db, post)
     moderator = db.get(User, post.approved_by) if post.approved_by is not None else None
+    latest_ai = db.execute(
+        select(Job)
+        .where(Job.post_id == post.id, Job.type == "ai_check", Job.status == "succeeded")
+        .order_by(Job.id.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    ai_changes = {}
+    if latest_ai is not None and latest_ai.post_version == post.version - 1:
+        ai_changes = (latest_ai.payload or {}).get("result", {}).get("changes", {}) or {}
     active_job = None
     completed_job = None
     raw_job = request.query_params.get("job", "")
@@ -103,6 +112,7 @@ def edit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
         moderator=moderator,
         active_job=active_job,
         completed_job=completed_job,
+        ai_changes=ai_changes,
         editable=posts.can_edit(post, user),
         message=request.query_params.get("ok"),
         error=request.query_params.get("error"),
