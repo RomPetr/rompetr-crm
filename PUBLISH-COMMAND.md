@@ -64,4 +64,4 @@ publish 0, 2, 4, 6
 - Telegram-бот: `C:\Users\rp\course\content\bot.py`
 - Скилл контента: `.claude/skills/ai-news-to-social/SKILL.md`
 - Субагенты: `.claude/agents/checker.md`, `.claude/agents/pixly.md`
-- Ключи и токены: `.claude/env.txt`
+- Ключи и токены: `.env`

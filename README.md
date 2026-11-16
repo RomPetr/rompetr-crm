@@ -12,7 +12,7 @@ CRM для подготовки и публикации новостей в со
 
 ## Что не попадает в git
 
-`posts/`, `var/`, все изображения, `.env`, `.claude/env.txt`, профиль Chrome
+`posts/`, `var/`, все изображения, `.env`, профиль Chrome
 `.chrome-x-profile/`, сторонний `.mcp-servers/`, виртуальные окружения и кэши.
 Политику проверяет `scripts/git_guard.py` и pre-commit hook.
 

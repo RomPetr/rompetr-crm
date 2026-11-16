@@ -37,7 +37,7 @@ python -I "C:\Users\rp\.cache\pixly_flux.py" "<абсолютный путь к 
 1. Проверяет, что JSON лежит внутри `posts`.
 2. Читает `image_prompt`.
 3. Создаёт один промпт: кинематографичный 3D.
-4. Один раз вызывает ProxyAPI с моделью `black-forest-labs/flux.2-pro`, размером 1024×1024 и `output_format: png`; ключ берёт из `C:\Users\rp\course\content\.claude\env.txt` (`PROXY_API_KEY`).
+4. Один раз вызывает ProxyAPI с моделью `black-forest-labs/flux.2-pro`, размером 1024×1024 и `output_format: png`; ключ берёт из `C:\Users\rp\course\content\.env` (`PROXYAPI_KEY`).
 5. Сохраняет файл рядом с JSON: `<base>-image-1.png`.
 6. Проверяет PNG-сигнатуру, размер и разрешение.
 
@@ -111,7 +111,7 @@ python "C:\Users\rp\.cache\pixly_avatars_vk.py"
 ```
 
 Скрипт:
-- берёт ключ и модель из строки `PROXY_API_KEY2` в `C:\Users\rp\course\content\.claude\env.txt` (модель сейчас `sourceful/riverflow-v2-fast`);
+- берёт ключ из `PROXYAPI_KEY_SECONDARY` в `C:\Users\rp\course\content\.env` (модель — `sourceful/riverflow-v2-fast`);
 - использует концепции из `prompt1.txt` (первые 5) и `prompt2.txt` (следующие 5) в корне проекта;
 - генерирует 1024×1024, конвертирует WebP в PNG и уменьшает до 512×512;
 - сохраняет 10 файлов в `C:\Users\rp\course\content\posts\avatarsVK\`:

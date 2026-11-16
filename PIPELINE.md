@@ -141,4 +141,4 @@ Pipeline рассчитан на добавление субагентов. Ка
 - `.claude/agents/checker.md` — QA-редактор
 - `.claude/agents/pixly.md` — генератор иллюстраций
 - `bot.py` — автопостинг в Telegram (@defidexmind)
-- `.claude/env.txt` — ключи и токены
+- `.env` — ключи и токены (в git не попадает)

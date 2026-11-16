@@ -24,7 +24,7 @@ import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-ENV_FILE = ROOT / ".claude" / "env.txt"
+ENV_FILE = ROOT / ".env"
 POSTS_DIR = ROOT / "posts"
 CAPTION_LIMIT = 1024
 MESSAGE_LIMIT = 4096
@@ -35,9 +35,11 @@ def read_env():
     if not ENV_FILE.exists():
         return values
     for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^([A-Z0-9_]+)\s*:\s*(.+)$", line.strip())
-        if m:
-            values[m.group(1)] = m.group(2).strip()
+        text = line.strip()
+        if not text or text.startswith("#") or "=" not in text:
+            continue
+        key, value = text.split("=", 1)
+        values[key.strip()] = value.strip().strip('"').strip("'")
     return values
 
 
@@ -137,11 +139,11 @@ def main():
 
     env = read_env()
     token = env.get("ACCESS_TOKEN") or env.get("TELEGRAM_BOT_TOKEN")
-    chat = args.chat or env.get("TG_GROUP_ID")
+    chat = args.chat or env.get("TG_GROUP_ID") or env.get("TELEGRAM_CHAT_ID")
     if not token:
-        sys.exit("ERROR: ACCESS_TOKEN не найден в .claude/env.txt")
+        sys.exit("ERROR: TELEGRAM_BOT_TOKEN не найден в .env")
     if not chat:
-        sys.exit("ERROR: TG_GROUP_ID не найден в .claude/env.txt")
+        sys.exit("ERROR: TELEGRAM_CHAT_ID не найден в .env")
 
     if args.latest or not args.path:
         json_path = find_latest_json(POSTS_DIR)
