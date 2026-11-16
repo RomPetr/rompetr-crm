@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Новый черновик{% endblock %}
+{% block content %}
+<section class="auth-card card">
+  <h1>Новый черновик</h1>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post" action="/drafts/new" class="form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Название черновика
+      <input name="title" value="{{ title | default('') }}" maxlength="300" required>
+    </label>
+    <button class="button" type="submit">Создать</button>
+  </form>
+</section>
+{% endblock %}

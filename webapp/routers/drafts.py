@@ -1,0 +1,206 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from webapp.db import get_db
+from webapp.deps import csrf_protect, require_user
+from webapp.models.content import Asset, Post
+from webapp.models.user import User
+from webapp.services import audit, media, posts
+from webapp.templating import render
+
+router = APIRouter(
+    tags=["drafts"], dependencies=[Depends(csrf_protect), Depends(require_user)]
+)
+
+
+def _get_post(db: Session, post_id: int, user: User) -> Post:
+    post = db.get(Post, post_id)
+    if post is None or not posts.can_view(post, user):
+        raise HTTPException(status_code=404)
+    return post
+
+
+def _values(post: Post) -> dict:
+    return {
+        "title": post.title,
+        "source_title": post.source_title,
+        "source_url": post.source_url,
+        "source_publisher": post.source_publisher,
+        "source_published_at": (
+            post.source_published_at.date().isoformat() if post.source_published_at else ""
+        ),
+        "image_prompt": post.image_prompt,
+        **(post.platforms or {}),
+    }
+
+
+@router.get("/drafts")
+def list_drafts(request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    stmt = select(Post).order_by(Post.updated_at.desc())
+    if user.role != "admin":
+        stmt = stmt.where(Post.author_id == user.id)
+    items = db.execute(stmt).scalars().all()
+    return render(request, "drafts/list.html", items=items)
+
+
+@router.get("/drafts/new")
+def new_draft_form(request: Request):
+    return render(request, "drafts/new.html")
+
+
+@router.post("/drafts/new")
+async def create_draft(request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    form = await request.form()
+    title = str(form.get("title", "")).strip()
+    if not title:
+        return render(request, "drafts/new.html", error="Укажите название черновика", title=title)
+    post = posts.create_draft(db, user, title)
+    audit.log_action(db, "post.created", actor_id=user.id, entity_type="post", entity_id=str(post.id))
+    db.commit()
+    return RedirectResponse(f"/drafts/{post.id}", status_code=303)
+
+
+@router.get("/drafts/{post_id}")
+def edit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    asset = media.primary_asset(db, post)
+    return render(
+        request,
+        "drafts/edit.html",
+        post=post,
+        values=_values(post),
+        asset=asset,
+        editable=posts.can_edit(post, user),
+        message=request.query_params.get("ok"),
+        error=request.query_params.get("error"),
+    )
+
+
+@router.post("/drafts/{post_id}")
+async def save_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    if not posts.can_edit(post, user):
+        raise HTTPException(status_code=403, detail="Редактирование недоступно")
+    form = await request.form()
+    data = {key: str(value) for key, value in form.items() if isinstance(value, str)}
+    try:
+        posts.apply_form(post, data, int(data.get("version", "0")))
+    except (posts.ConflictError, ValueError) as exc:
+        db.rollback()
+        return RedirectResponse(f"/drafts/{post_id}?error={str(exc)}", status_code=303)
+    audit.log_action(db, "post.saved", actor_id=user.id, entity_type="post", entity_id=str(post.id))
+    db.commit()
+    return RedirectResponse(f"/drafts/{post_id}?ok=saved", status_code=303)
+
+
+@router.post("/drafts/{post_id}/check")
+def check_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    errors = posts.validate_post(post)
+    if errors:
+        return render(
+            request,
+            "drafts/edit.html",
+            post=post,
+            values=_values(post),
+            asset=media.primary_asset(db, post),
+            editable=posts.can_edit(post, user),
+            check_errors=errors,
+        )
+    return RedirectResponse(f"/drafts/{post_id}?ok=check", status_code=303)
+
+
+@router.post("/drafts/{post_id}/submit")
+def submit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    if not posts.can_edit(post, user):
+        raise HTTPException(status_code=403)
+    errors = posts.submit_for_review(db, post)
+    if errors:
+        return render(
+            request,
+            "drafts/edit.html",
+            post=post,
+            values=_values(post),
+            asset=media.primary_asset(db, post),
+            editable=True,
+            check_errors=errors,
+        )
+    audit.log_action(db, "post.submitted", actor_id=user.id, entity_type="post", entity_id=str(post.id))
+    db.commit()
+    return RedirectResponse(f"/drafts/{post_id}?ok=submitted", status_code=303)
+
+
+@router.post("/drafts/{post_id}/assets")
+async def upload_asset(post_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    if not posts.can_edit(post, user):
+        raise HTTPException(status_code=403)
+    form = await request.form()
+    upload = form.get("image")
+    if upload is None or not hasattr(upload, "file"):
+        return RedirectResponse(f"/drafts/{post_id}?error=Файл не выбран", status_code=303)
+    try:
+        asset = media.save_image(db, post, upload, user.id)
+    except HTTPException as exc:
+        db.rollback()
+        return RedirectResponse(f"/drafts/{post_id}?error={exc.detail}", status_code=303)
+    audit.log_action(
+        db,
+        "post.asset_uploaded",
+        actor_id=user.id,
+        entity_type="post",
+        entity_id=str(post.id),
+        meta={"asset_id": asset.id},
+    )
+    db.commit()
+    return RedirectResponse(f"/drafts/{post_id}?ok=image", status_code=303)
+
+
+@router.post("/drafts/{post_id}/assets/{asset_id}/delete")
+def delete_asset(post_id: int, asset_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    if not posts.can_edit(post, user):
+        raise HTTPException(status_code=403)
+    asset = db.get(Asset, asset_id)
+    if asset is None or asset.post_id != post.id:
+        raise HTTPException(status_code=404)
+    db.delete(asset)
+    audit.log_action(db, "post.asset_deleted", actor_id=user.id, entity_type="post", entity_id=str(post.id))
+    db.commit()
+    return RedirectResponse(f"/drafts/{post_id}?ok=image_deleted", status_code=303)
+
+
+@router.post("/drafts/{post_id}/publish")
+def publish_placeholder(post_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    if user.role == "guest":
+        raise HTTPException(status_code=403, detail="Гостевой доступ не позволяет публиковать")
+    if post.status != "approved":
+        raise HTTPException(status_code=400, detail="Публикация доступна только для одобренного поста")
+    raise HTTPException(status_code=501, detail="Публикация будет подключена на этапе 4")
+
+
+@router.post("/drafts/{post_id}/archive")
+def archive_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    if not posts.can_edit(post, user):
+        raise HTTPException(status_code=403)
+    post.status = "archived"
+    audit.log_action(db, "post.archived", actor_id=user.id, entity_type="post", entity_id=str(post.id))
+    db.commit()
+    return RedirectResponse("/drafts", status_code=303)

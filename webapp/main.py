@@ -12,7 +12,7 @@ from webapp.config import ROOT, get_settings
 from webapp.db import SessionLocal
 from webapp.logging import configure_logging
 from webapp.middleware import AuthContextMiddleware, SecurityHeadersMiddleware
-from webapp.routers import admin, auth, dashboard, health, public, tickets
+from webapp.routers import admin, auth, dashboard, drafts, health, media, public, tickets
 from webapp.services.bootstrap import ensure_root_admin
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -58,6 +58,8 @@ def create_app() -> FastAPI:
     application.include_router(auth.router)
     application.include_router(dashboard.router)
     application.include_router(tickets.router)
+    application.include_router(drafts.router)
+    application.include_router(media.router)
     application.include_router(admin.router)
     return application
 

@@ -14,6 +14,7 @@ from webapp.models.support import Ticket, TicketMessage
 from webapp.models.system import Job
 from webapp.models.user import User
 from webapp.services import audit, sessions
+from webapp.services import posts as posts_service
 from webapp.templating import render
 
 router = APIRouter(
@@ -189,3 +190,51 @@ def ticket_reply(
     audit.log_action(db, "admin.ticket_reply", actor_id=admin.id, entity_type="ticket", entity_id=str(ticket.id))
     db.commit()
     return RedirectResponse(f"/admin/tickets/{ticket.id}", status_code=303)
+
+
+@router.get("/posts")
+def posts_list(request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    rows = db.execute(
+        select(Post, User)
+        .join(User, User.id == Post.author_id)
+        .order_by(Post.updated_at.desc())
+    ).all()
+    return render(request, "admin/posts.html", admin=admin, rows=rows)
+
+
+@router.post("/posts/{post_id}/approve")
+def approve_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    post = db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(status_code=404)
+    posts_service.approve(db, post, admin)
+    audit.log_action(db, "admin.post_approved", actor_id=admin.id, entity_type="post", entity_id=str(post.id))
+    db.commit()
+    return RedirectResponse("/admin/posts", status_code=303)
+
+
+@router.post("/posts/{post_id}/reject")
+def reject_post(
+    post_id: int,
+    reason: str = Form(""),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    post = db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(status_code=404)
+    posts_service.reject(db, post, admin, reason)
+    audit.log_action(
+        db,
+        "admin.post_rejected",
+        actor_id=admin.id,
+        entity_type="post",
+        entity_id=str(post.id),
+        meta={"reason": reason[:500]},
+    )
+    db.commit()
+    return RedirectResponse("/admin/posts", status_code=303)

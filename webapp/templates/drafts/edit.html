@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title or "Черновик" }}{% endblock %}
+{% block content %}
+<div class="head-row">
+  <h1>{{ post.title or "Без названия" }}</h1>
+  <span class="badge">{{ post.status }}</span>
+</div>
+{% if message == "saved" %}<p class="ok">Сохранено.</p>{% endif %}
+{% if message == "check" %}<p class="ok">Проверка пройдена.</p>{% endif %}
+{% if message == "submitted" %}<p class="ok">Отправлено на проверку администратору.</p>{% endif %}
+{% if message == "image" %}<p class="ok">Изображение загружено.</p>{% endif %}
+{% if message == "image_deleted" %}<p class="ok">Изображение удалено.</p>{% endif %}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if check_errors %}
+  <div class="error">
+    <strong>Нужно исправить:</strong>
+    <ul>{% for item in check_errors %}<li>{{ item }}</li>{% endfor %}</ul>
+  </div>
+{% endif %}
+{% if post.rejection_reason %}
+  <p class="error">Причина отклонения: {{ post.rejection_reason }}</p>
+{% endif %}
+
+{% if not editable %}
+  <p class="muted">Редактирование недоступно в статусе «{{ post.status }}».</p>
+{% endif %}
+
+<form method="post" action="/drafts/{{ post.id }}" class="form card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="version" value="{{ post.version }}">
+
+  <h2>Источник</h2>
+  <label>Заголовок источника
+    <input name="source_title" value="{{ values.source_title }}" maxlength="500" {% if not editable %}disabled{% endif %}>
+  </label>
+  <label>Ссылка
+    <input name="source_url" type="url" value="{{ values.source_url }}" {% if not editable %}disabled{% endif %}>
+  </label>
+  <label>Издание
+    <select name="source_publisher" {% if not editable %}disabled{% endif %}>
+      <option value="">—</option>
+      {% for name in ["The Block", "The Defiant", "Blockworks", "CoinDesk", "Decrypt"] %}
+        <option value="{{ name }}" {% if values.source_publisher == name %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Дата публикации
+    <input name="source_published_at" type="date" value="{{ values.source_published_at }}" {% if not editable %}disabled{% endif %}>
+  </label>
+
+  <h2>Тексты площадок</h2>
+  <label>Telegram (800–1024, без хэштегов)
+    <textarea name="telegram" rows="6" {% if not editable %}disabled{% endif %}>{{ values.telegram }}</textarea>
+  </label>
+  <label>VK (700–1500, 3–7 хэштегов)
+    <textarea name="vk" rows="6" {% if not editable %}disabled{% endif %}>{{ values.vk }}</textarea>
+  </label>
+  <label>Instagram (100–200 слов, 5–10 хэштегов)
+    <textarea name="instagram" rows="6" {% if not editable %}disabled{% endif %}>{{ values.instagram }}</textarea>
+  </label>
+  <label>X (до 280, только английский)
+    <textarea name="x" rows="4" {% if not editable %}disabled{% endif %}>{{ values.x }}</textarea>
+  </label>
+  <label>TikTok (50–120 слов, 3–5 хэштегов)
+    <textarea name="tiktok" rows="5" {% if not editable %}disabled{% endif %}>{{ values.tiktok }}</textarea>
+  </label>
+
+  <h2>Иллюстрация</h2>
+  <label>image_prompt (английский)
+    <textarea name="image_prompt" rows="4" {% if not editable %}disabled{% endif %}>{{ values.image_prompt }}</textarea>
+  </label>
+
+  {% if editable %}
+    <div class="actions">
+      <button class="button" type="submit">Сохранить</button>
+    </div>
+  {% endif %}
+</form>
+
+{% if editable %}
+<div class="grid">
+  <form method="post" action="/drafts/{{ post.id }}/check" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <h2>Проверка</h2>
+    <p class="muted">Лимиты площадок, язык X, секреты и обещания доходности.</p>
+    <button class="button secondary" type="submit">Проверить</button>
+  </form>
+  <form method="post" action="/drafts/{{ post.id }}/submit" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <h2>Модерация</h2>
+    <p class="muted">Отправить админу на одобрение.</p>
+    <button class="button secondary" type="submit">На проверку</button>
+  </form>
+  <form method="post" action="/drafts/{{ post.id }}/assets" enctype="multipart/form-data" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <h2>Изображение</h2>
+    <p class="muted">PNG или JPEG, до 10 МБ. Перекодируется в PNG без EXIF.</p>
+    <input type="file" name="image" accept="image/png,image/jpeg" required>
+    <button class="button secondary" type="submit">Загрузить</button>
+  </form>
+  <form method="post" action="/drafts/{{ post.id }}/archive" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <h2>Архив</h2>
+    <p class="muted">Скрыть черновик из работы.</p>
+    <button class="button secondary" type="submit">В архив</button>
+  </form>
+</div>
+{% endif %}
+
+{% if asset %}
+<section class="card note">
+  <h2>Текущая иллюстрация</h2>
+  <img class="preview" src="/media/{{ post.public_id }}/{{ asset.storage_key.split('/')[-1] }}" alt="Иллюстрация поста">
+  {% if editable %}
+  <form method="post" action="/drafts/{{ post.id }}/assets/{{ asset.id }}/delete">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="button small secondary" type="submit">Удалить изображение</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+
+<p><a href="/drafts">Назад к черновикам</a></p>
+{% endblock %}
