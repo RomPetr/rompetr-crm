@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -262,15 +262,42 @@ def enqueue_ai_check(post_id: int, request: Request, db: Session = Depends(get_d
 
 
 @router.post("/drafts/{post_id}/generate-image")
-def enqueue_generate_image(post_id: int, request: Request, db: Session = Depends(get_db)):
+def enqueue_generate_image(
+    post_id: int,
+    request: Request,
+    model: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    from webapp.services.images import IMAGE_MODELS
+
     user: User = request.state.user
     post = _get_post(db, post_id, user)
     if not posts.can_edit(post, user):
         raise HTTPException(status_code=403)
-    job = jobs.enqueue(db, "generate_image", post, created_by=user.id)
-    audit.log_action(db, "post.image_queued", actor_id=user.id, entity_type="post", entity_id=str(post.id))
+    selected = model if model in IMAGE_MODELS else IMAGE_MODELS[0]
+    job = jobs.enqueue(
+        db, "generate_image", post, created_by=user.id, payload={"model": selected}
+    )
+    audit.log_action(
+        db,
+        "post.image_queued",
+        actor_id=user.id,
+        entity_type="post",
+        entity_id=str(post.id),
+        meta={"model": selected},
+    )
     db.commit()
     return RedirectResponse(f"/drafts/{post_id}?ok=queued_image&job={job.id}", status_code=303)
+
+
+@router.get("/drafts/{post_id}/jobs/{job_id}/status")
+def job_status(post_id: int, job_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    job = db.get(Job, job_id)
+    if job is None or job.post_id != post.id:
+        raise HTTPException(status_code=404)
+    return JSONResponse({"id": job.id, "type": job.type, "status": job.status})
 
 
 @router.get("/drafts/{post_id}/assets/{asset_id}/download")

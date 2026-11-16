@@ -103,7 +103,7 @@ def run_generate_image(db: Session, job: Job) -> dict:
     post = db.get(Post, job.post_id) if job.post_id else None
     if post is None:
         raise RuntimeError("Пост не найден")
-    asset = images.generate(db, post, job.created_by)
+    asset = images.generate(db, post, job.created_by, (job.payload or {}).get("model"))
     return {"asset_id": asset.id, "storage_key": asset.storage_key, "bytes": asset.bytes}
 
 

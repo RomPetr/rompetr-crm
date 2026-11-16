@@ -270,6 +270,15 @@ def test_job_wait_panel(client):
     assert "в работе" in page.text
     assert 'id="job-timer"' in page.text
     assert "10–60 секунд" in page.text
+    assert 'name="model"' in page.text
+    assert "black-forest-labs/flux.2-pro" in page.text
+    assert "gpt-image-1-mini" in page.text
+    assert "Запустить" in page.text
+    status_match = re.search(r'data-post-id="(\d+)" data-job-id="(\d+)"', page.text)
+    assert status_match
+    status = client.get(f"/drafts/{status_match.group(1)}/jobs/{status_match.group(2)}/status")
+    assert status.status_code == 200
+    assert status.json()["status"] in {"queued", "running"}
 
     db = SessionLocal()
     try:

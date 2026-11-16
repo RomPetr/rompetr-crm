@@ -62,7 +62,10 @@ def test_enqueue_is_idempotent_and_claims():
 
 
 def test_generate_image_job(monkeypatch):
-    def fake_generate(db, post, user_id):
+    seen = {}
+
+    def fake_generate(db, post, user_id, model=None):
+        seen["model"] = model
         return SimpleNamespace(id=99, storage_key="posts/x/y.png", bytes=1234)
 
     monkeypatch.setattr("webapp.services.images.generate", fake_generate)
@@ -70,12 +73,15 @@ def test_generate_image_job(monkeypatch):
     db = SessionLocal()
     try:
         post = make_draft(db, "Image job")
-        job = jobs.enqueue(db, "generate_image", post, created_by=0)
+        job = jobs.enqueue(
+            db, "generate_image", post, created_by=0, payload={"model": "gpt-image-1-mini"}
+        )
         db.commit()
         process(db, job)
         db.refresh(job)
         assert job.status == "succeeded"
         assert job.payload["result"]["asset_id"] == 99
+        assert seen["model"] == "gpt-image-1-mini"
     finally:
         db.close()
 
@@ -116,7 +122,7 @@ def test_ai_check_job_updates_post(monkeypatch):
 def test_regenerate_after_success_creates_new_job(monkeypatch):
     monkeypatch.setattr(
         "webapp.services.images.generate",
-        lambda db, post, user_id: SimpleNamespace(id=1, storage_key="posts/a/b.png", bytes=1),
+        lambda db, post, user_id, model=None: SimpleNamespace(id=1, storage_key="posts/a/b.png", bytes=1),
     )
     db = SessionLocal()
     try:

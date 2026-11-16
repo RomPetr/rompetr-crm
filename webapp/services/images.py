@@ -11,6 +11,8 @@ from webapp.config import get_settings
 from webapp.models.content import Asset, Post
 from webapp.services import media
 
+IMAGE_MODELS = ("black-forest-labs/flux.2-pro", "gpt-image-1-mini")
+
 
 def _request(url: str, payload: dict, key: str) -> bytes:
     request = urllib.request.Request(
@@ -30,7 +32,32 @@ def _request(url: str, payload: dict, key: str) -> bytes:
     raise RuntimeError("API изображений не вернул данные")
 
 
-def generate(db: Session, post: Post, user_id: int | None) -> Asset:
+def _attempt(model: str) -> tuple[str, dict]:
+    settings = get_settings()
+    base = settings.proxyapi_base_url.rstrip("/")
+    if model == "gpt-image-1-mini":
+        return (
+            f"{base}/openai/v1/images/generations",
+            {
+                "model": "gpt-image-1-mini",
+                "prompt": "",
+                "size": "1024x1024",
+                "quality": "medium",
+                "output_format": "png",
+            },
+        )
+    return (
+        f"{base}/v1/images/generations",
+        {
+            "model": "black-forest-labs/flux.2-pro",
+            "prompt": "",
+            "size": "1024x1024",
+            "output_format": "png",
+        },
+    )
+
+
+def generate(db: Session, post: Post, user_id: int | None, model: str | None = None) -> Asset:
     settings = get_settings()
     key = settings.proxyapi_key.get_secret_value()
     if not key:
@@ -39,41 +66,25 @@ def generate(db: Session, post: Post, user_id: int | None) -> Asset:
     if len(prompt) < 20:
         raise RuntimeError("image_prompt пустой или слишком короткий")
 
-    base = settings.proxyapi_base_url.rstrip("/")
-    attempts = (
-        (
-            f"{base}/v1/images/generations",
-            {
-                "model": settings.image_model,
-                "prompt": prompt,
-                "size": "1024x1024",
-                "output_format": "png",
-            },
-        ),
-        (
-            f"{base}/openai/v1/images/generations",
-            {
-                "model": settings.image_fallback_model,
-                "prompt": prompt,
-                "size": "1024x1024",
-                "quality": "medium",
-                "output_format": "png",
-            },
-        ),
-    )
+    chosen = model if model in IMAGE_MODELS else settings.image_model
+    if chosen not in IMAGE_MODELS:
+        chosen = IMAGE_MODELS[0]
+    order = [chosen] + [name for name in IMAGE_MODELS if name != chosen]
 
     last_error = "unknown"
-    for url, payload in attempts:
+    for name in order:
+        url, payload = _attempt(name)
+        payload["prompt"] = prompt
         try:
             raw = _request(url, payload, key)
         except urllib.error.HTTPError as exc:
-            last_error = f"HTTP {exc.code}: " + exc.read().decode("utf-8", "replace")[:400]
+            last_error = f"{name}: HTTP {exc.code}: " + exc.read().decode("utf-8", "replace")[:300]
             continue
         except Exception as exc:  # network
-            last_error = str(exc)
+            last_error = f"{name}: {exc}"
             continue
         if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
-            last_error = "ответ не является PNG"
+            last_error = f"{name}: ответ не является PNG"
             continue
         return media.save_bytes(db, post, raw, user_id)
 
