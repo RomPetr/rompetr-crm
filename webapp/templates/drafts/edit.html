@@ -203,6 +203,9 @@
 {% if asset %}
 <section class="card note">
   <h2>Текущая иллюстрация</h2>
+  {% if not post.image_enabled %}
+    <p class="error">Изображение есть, но image_prompt выключен: при публикации картинка не прикрепится.</p>
+  {% endif %}
   <img class="preview" src="/media/{{ post.public_id }}/{{ asset.storage_key.split('/')[-1] }}" alt="Иллюстрация поста">
   <div class="asset-actions">
     <a class="button small" href="/drafts/{{ post.id }}/assets/{{ asset.id }}/download">Сохранить изображение</a>
