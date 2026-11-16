@@ -50,10 +50,9 @@ def publish_post(db: Session, post: Post, actor: User) -> list[Outcome]:
     if not platforms:
         raise ValueError("Не включена ни одна площадка")
     image_path = None
-    if post.image_enabled:
-        asset = media.primary_asset(db, post)
-        if asset is not None:
-            image_path = media.asset_path(asset)
+    asset = media.primary_asset(db, post)
+    if asset is not None:
+        image_path = media.asset_path(asset)
 
     outcomes: list[Outcome] = []
     for platform in platforms:

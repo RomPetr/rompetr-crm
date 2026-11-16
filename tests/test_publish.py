@@ -146,3 +146,39 @@ def test_scheduler_publishes_due_posts(monkeypatch):
         assert results and results[0][0] == post.id
     finally:
         db.close()
+
+
+def test_image_is_attached_even_when_prompt_disabled(monkeypatch):
+    import io
+
+    from PIL import Image
+
+    from webapp.services import media
+
+    captured = {}
+
+    def fake_vk(text):
+        return SimpleNamespace(ok=True, external_id="1", url="https://vk.com/wall-1_1", error=None, unknown=False)
+
+    def fake_tg(text, image_path):
+        captured["image"] = image_path
+        return SimpleNamespace(ok=True, external_id="2", url="https://t.me/x/2", error=None, unknown=False)
+
+    monkeypatch.setattr("webapp.services.vk.publish", fake_vk)
+    monkeypatch.setattr("webapp.services.telegram.publish", fake_tg)
+
+    db = SessionLocal()
+    try:
+        post = make_approved_post(db, "Image without prompt toggle")
+        post.image_enabled = False
+        buffer = io.BytesIO()
+        Image.new("RGB", (8, 8), (12, 34, 56)).save(buffer, format="PNG")
+        media.save_bytes(db, post, buffer.getvalue(), 0)
+        db.commit()
+
+        admin = db.get(User, 0)
+        publish.publish_post(db, post, admin)
+        db.commit()
+        assert captured["image"] is not None
+    finally:
+        db.close()

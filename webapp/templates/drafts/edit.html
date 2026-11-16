@@ -204,7 +204,7 @@
 <section class="card note">
   <h2>Текущая иллюстрация</h2>
   {% if not post.image_enabled %}
-    <p class="error">Изображение есть, но image_prompt выключен: при публикации картинка не прикрепится.</p>
+    <p class="muted">image_prompt выключен: AI-перевод не меняет его, но загруженная картинка всё равно публикуется.</p>
   {% endif %}
   <img class="preview" src="/media/{{ post.public_id }}/{{ asset.storage_key.split('/')[-1] }}" alt="Иллюстрация поста">
   <div class="asset-actions">
