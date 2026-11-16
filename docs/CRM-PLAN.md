@@ -104,11 +104,11 @@ ID 0 нельзя удалить или сменить роль; смена `ADM
 **Приёмка:** гость создаёт черновик; публикация → 403; чужой черновик → 404;
 действия в `audit_log`.
 
-### Этап 4. Публикация VK/Telegram
-- [ ] `telegram.py`, `vk.py`, `publish.py`, `x_manual.py`
-- [ ] Идемпотентность, retry, статус `unknown`
-- [ ] Планировщик `scheduled_at`
-- [ ] `smoke_publish.py --dry-run`
+### Этап 4. Публикация VK/Telegram — готово
+- [x] `telegram.py`, `vk.py`, `publish.py`, `x_manual.py`
+- [x] Идемпотентность, retry, статус `unknown`
+- [x] Планировщик `scheduled_at` через `webapp.cli publish-due`
+- [x] `smoke_publish.py --dry-run`
 
 **Приёмка:** нет дублей; caption ≤1024; `error 27` без retry; X → `manual_pending`;
 токенов в логах нет.
