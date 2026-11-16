@@ -128,8 +128,6 @@ def validate_platforms(platforms: dict[str, str], publisher: str | None = None) 
         text = platforms["vk"]
         if not 700 <= len(text) <= 1500:
             errors.append(f"vk: {len(text)} символов, нужно 700–1500")
-        if not 3 <= len(hashtags(text)) <= 7:
-            errors.append("vk: нужно 3–7 хэштегов")
         errors += _common_checks(text, "vk")
 
     if "instagram" in platforms:

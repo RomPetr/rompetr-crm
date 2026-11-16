@@ -34,6 +34,10 @@ def test_validator_limits():
     bad["x"] = "Кириллица в X"
     assert any("только английский" in item for item in validate_platforms(bad))
 
+    no_vk_tags = dict(good)
+    no_vk_tags["vk"] = "В" * 700
+    assert not [item for item in validate_platforms(no_vk_tags) if item.startswith("vk")]
+
     bad = dict(good)
     bad["telegram"] = "коротко"
     assert any("telegram" in item for item in validate_platforms(bad))

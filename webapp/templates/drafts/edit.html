@@ -102,7 +102,7 @@
   </div>
   <div class="field">
     <div class="field-head">
-      <span class="field-title">VK (700–1500, 3–7 хэштегов)</span>
+      <span class="field-title">VK (700–1500 символов)</span>
       {% if ai.get("vk") %}<span class="change-badge">{{ "Переведено" if ai.get("vk") == "translated" else "Исправлено" }}</span>{% endif %}
       <label class="toggle"><input type="checkbox" name="enabled_vk" value="1" data-toggle-target="field_vk" {% if values.enabled_vk %}checked{% endif %} {% if not editable %}disabled{% endif %}> Включить VK</label>
     </div>
