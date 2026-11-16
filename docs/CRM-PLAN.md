@@ -123,11 +123,11 @@ ID 0 нельзя удалить или сменить роль; смена `ADM
 **Приёмка:** ≤1 Claude одновременно; timeout убивает процесс; stale-lock возвращает
 задачу; `claude auth status` → `oauth_token`.
 
-### Этап 6. Локальная обкатка
-- [ ] ruff, pytest, покрытие ≥70%
-- [ ] Ручной сценарий до публикации в тестовые VK/TG
-- [ ] Restore из `pg_dump`
-- [ ] `git_guard --tracked` → 0
+### Этап 6. Локальная обкатка — кодовая часть
+- [x] ruff, pytest: 25 тестов, покрытие 70%; auth 86%, publish 94%, validator 82%, jobs 72%
+- [~] Ручной сценарий: вход, регистрация, черновик, картинка проверены; публикация в реальные VK/TG — по желанию
+- [~] `pg_dump` создан и проверен `pg_restore -l` (129 записей); полный restore требует пароль postgres
+- [x] `git_guard --tracked` → 0
 
 ### Этап 7. Деплой на VPS
 - [ ] Provisioning Debian 12, PostgreSQL, systemd, nginx, certbot, UFW, fail2ban
