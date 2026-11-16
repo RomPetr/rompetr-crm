@@ -239,3 +239,37 @@ def test_admin_sees_author_and_moderates_from_drafts(client):
     page = client.get(f"/drafts/{post_id}")
     assert "Модерация:" in page.text
     assert "admin" in page.text
+
+
+def test_job_wait_panel(client):
+    from webapp.db import SessionLocal
+    from webapp.models.system import Job
+
+    login(client, "admin", "test-admin-password-12345")
+    token = csrf(client)
+    created = client.post(
+        "/drafts/new", data={"csrf_token": token, "title": "Задача в работе"}, follow_redirects=False
+    )
+    post_id = int(created.headers["location"].rstrip("/").split("/")[-1])
+    client.post(f"/drafts/{post_id}", data=form_payload(token, 1), follow_redirects=False)
+
+    queued = client.post(
+        f"/drafts/{post_id}/ai-check", data={"csrf_token": token}, follow_redirects=False
+    )
+    assert queued.status_code == 303
+    page = client.get(queued.headers["location"])
+    assert "Задача #" in page.text
+    assert "в работе" in page.text
+    assert 'id="job-timer"' in page.text
+    assert "10–60 секунд" in page.text
+
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.post_id == post_id, Job.type == "ai_check").one()
+        job.status = "succeeded"
+        db.commit()
+    finally:
+        db.close()
+
+    done = client.get(queued.headers["location"])
+    assert "завершена" in done.text

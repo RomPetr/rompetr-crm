@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ post.title or "Черновик" }}<script src="/static/js/publisher.js" defer></script>
+{% block title %}{{ post.title or "Черновик" }}
 {% endblock %}
 {% block content %}
 <div class="head-row">
@@ -12,8 +12,27 @@
 {% if message == "image" %}<p class="ok">Изображение загружено.</p>{% endif %}
 {% if message == "image_deleted" %}<p class="ok">Изображение удалено.</p>{% endif %}
 {% if message == "published" %}<p class="ok">Публикация выполнена.</p>{% endif %}
-{% if message == "queued_ai" %}<p class="ok">AI-проверка поставлена в очередь.</p>{% endif %}
-{% if message == "queued_image" %}<p class="ok">Генерация изображения поставлена в очередь.</p>{% endif %}
+{% if completed_job %}
+  {% if completed_job.status == "succeeded" %}
+    <p class="ok">Задача #{{ completed_job.id }} завершена: {{ "AI-проверка" if completed_job.type == "ai_check" else "генерация изображения" }} выполнена.</p>
+  {% else %}
+    <p class="error">Задача #{{ completed_job.id }} завершилась со статусом {{ completed_job.status }}{% if completed_job.error %}: {{ completed_job.error[:300] }}{% endif %}</p>
+  {% endif %}
+{% endif %}
+{% if active_job %}
+<section class="card job-wait" id="job-wait" data-started="{{ active_job.created_at.isoformat() }}">
+  <div class="spinner" aria-hidden="true"></div>
+  <h2>Задача #{{ active_job.id }} в работе</h2>
+  <p>
+    {{ "AI-проверка" if active_job.type == "ai_check" else "Генерация изображения" }}
+    занимает {% if active_job.type == "ai_check" %}10–60 секунд{% else %}10–40 секунд{% endif %}.
+    Дождитесь завершения и обновите страницу.
+  </p>
+  <p class="muted">Прошло: <span id="job-timer">0</span> с · статус: <span id="job-status">{{ active_job.status }}</span></p>
+  <p id="job-hint" class="muted" hidden>Дольше обычного. Проверьте /admin/jobs — возможно, задача ждёт worker.</p>
+  <a class="button" href="/drafts/{{ post.id }}">Обновить страницу</a>
+</section>
+{% endif %}
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 {% if check_errors %}
   <div class="error">
@@ -190,4 +209,5 @@
 
 <p><a href="/drafts">Назад к черновикам</a></p>
 <script src="/static/js/publisher.js" defer></script>
+<script src="/static/js/job_wait.js" defer></script>
 {% endblock %}

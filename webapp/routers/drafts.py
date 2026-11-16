@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from webapp.db import get_db
 from webapp.deps import csrf_protect, require_user
 from webapp.models.content import Asset, Post, Publication
+from webapp.models.system import Job
 from webapp.models.user import User
 from webapp.services import audit, jobs, media, posts
 from webapp.services import publish as publish_service
@@ -77,6 +78,16 @@ def edit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
     post = _get_post(db, post_id, user)
     asset = media.primary_asset(db, post)
     moderator = db.get(User, post.approved_by) if post.approved_by is not None else None
+    active_job = None
+    completed_job = None
+    raw_job = request.query_params.get("job", "")
+    if raw_job.isdigit():
+        job = db.get(Job, int(raw_job))
+        if job is not None and job.post_id == post.id:
+            if job.status in {"queued", "running"}:
+                active_job = job
+            else:
+                completed_job = job
     publications = db.execute(
         select(Publication).where(Publication.post_id == post.id).order_by(Publication.platform)
     ).scalars().all()
@@ -88,6 +99,8 @@ def edit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
         asset=asset,
         publications=publications,
         moderator=moderator,
+        active_job=active_job,
+        completed_job=completed_job,
         editable=posts.can_edit(post, user),
         message=request.query_params.get("ok"),
         error=request.query_params.get("error"),
