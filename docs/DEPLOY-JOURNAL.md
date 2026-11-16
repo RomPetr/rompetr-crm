@@ -158,6 +158,14 @@ EMAIL_MODE=dev            # до настройки SMTP; письма в var/ma
 - `/admin/users?status=pending` — фильтр; столбцы «Имя / логин», роль, статус, подтверждение e-mail.
 - Создан этот журнал.
 
+### 2026-11-16 13:40 — исправлена авторизация worker’а
+
+- Ошибка AI-проверки: `Claude Code exit 1` с пустым stderr. В JSON-ответе CLI было `Not logged in`.
+- Причина: uvicorn запускается из PowerShell, где нет `ANTHROPIC_AUTH_TOKEN`/`ANTHROPIC_BASE_URL`; переменные есть только в окружении сессии Claude Code.
+- Исправление: settings получили поля `ANTHROPIC_AUTH_TOKEN` и `ANTHROPIC_BASE_URL`; runner берёт их из `.env`. Если задан `CLAUDE_CODE_OAUTH_TOKEN`, используется он, а локальный токен не передаётся.
+- `CLAUDE_MODEL` очищен локально: при пустом значении runner не добавляет `--model` и `--fallback-model`, CLI использует модель по умолчанию. На VPS задать `CLAUDE_MODEL=sonnet`.
+- [VPS] В `app.env` достаточно `CLAUDE_CODE_OAUTH_TOKEN` из `claude setup-token`. `ANTHROPIC_AUTH_TOKEN` на сервер не переносить.
+
 ---
 
 ## 3. Открытые вопросы
