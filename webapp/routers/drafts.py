@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -271,3 +271,15 @@ def enqueue_generate_image(post_id: int, request: Request, db: Session = Depends
     audit.log_action(db, "post.image_queued", actor_id=user.id, entity_type="post", entity_id=str(post.id))
     db.commit()
     return RedirectResponse(f"/drafts/{post_id}?ok=queued_image&job={job.id}", status_code=303)
+
+
+@router.get("/drafts/{post_id}/assets/{asset_id}/download")
+def download_asset(post_id: int, asset_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    asset = db.get(Asset, asset_id)
+    if asset is None or asset.post_id != post.id:
+        raise HTTPException(status_code=404)
+    path = media.asset_path(asset)
+    filename = f"{post.base_slug}-image-{asset.id}.png"
+    return FileResponse(path, media_type=asset.mime, filename=filename)

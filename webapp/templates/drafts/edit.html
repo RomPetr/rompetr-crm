@@ -160,12 +160,15 @@
 <section class="card note">
   <h2>Текущая иллюстрация</h2>
   <img class="preview" src="/media/{{ post.public_id }}/{{ asset.storage_key.split('/')[-1] }}" alt="Иллюстрация поста">
-  {% if editable %}
-  <form method="post" action="/drafts/{{ post.id }}/assets/{{ asset.id }}/delete">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button class="button small secondary" type="submit">Удалить изображение</button>
-  </form>
-  {% endif %}
+  <div class="asset-actions">
+    <a class="button small" href="/drafts/{{ post.id }}/assets/{{ asset.id }}/download">Сохранить изображение</a>
+    {% if editable %}
+    <form method="post" action="/drafts/{{ post.id }}/assets/{{ asset.id }}/delete">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="button small secondary" type="submit">Удалить изображение</button>
+    </form>
+    {% endif %}
+  </div>
 </section>
 {% endif %}
 

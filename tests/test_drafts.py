@@ -143,6 +143,14 @@ def test_image_upload_and_private_media(client):
     assert media_response.status_code == 200
     assert media_response.headers["content-type"] == "image/png"
 
+    download_match = re.search(r'href="(/drafts/\d+/assets/\d+/download)"', page.text)
+    assert download_match, page.text
+    download = client.get(download_match.group(1))
+    assert download.status_code == 200
+    disposition = download.headers["content-disposition"]
+    assert "attachment" in disposition
+    assert ".png" in disposition
+
 
 def test_guest_cannot_publish(client):
     from webapp.db import SessionLocal

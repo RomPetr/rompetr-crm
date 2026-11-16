@@ -208,3 +208,6 @@ select {
   margin-bottom: 8px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.asset-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.asset-actions form { margin: 0; }
