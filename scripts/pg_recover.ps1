@@ -1,34 +1,36 @@
-﻿﻿#Requires -RunAsAdministrator
-# Восстанавливает суперпользователя postgres и роль rompetr_app.
-# Запускать в PowerShell от имени администратора:
+﻿# PostgreSQL recovery: temporarily allow local trust auth, find an existing
+# superuser, create/update postgres and rompetr_app, restore scram auth.
+# Run in an elevated PowerShell:
 #   powershell -ExecutionPolicy Bypass -File scripts\pg_recover.ps1
 
 $ErrorActionPreference = "Stop"
 
+$principal = New-Object Security.Principal.WindowsPrincipal(
+    [Security.Principal.WindowsIdentity]::GetCurrent()
+)
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw "Run this script from an elevated PowerShell window."
+}
+
 $PgBin = "C:\Program Files\PostgreSQL\16\bin"
 $DataDir = "C:\Program Files\PostgreSQL\16\data"
 $Service = "postgresql-x64-16"
+$Hba = Join-Path $DataDir "pg_hba.conf"
 
-if (-not (Test-Path "$PgBin\postgres.exe")) {
-    throw "Не найден $PgBin\postgres.exe"
-}
-if (-not (Test-Path "$DataDir\PG_VERSION")) {
-    throw "Не найден каталог данных $DataDir"
-}
+if (-not (Test-Path "$PgBin\psql.exe")) { throw "psql.exe not found in $PgBin" }
+if (-not (Test-Path $Hba)) { throw "pg_hba.conf not found in $DataDir" }
 
 $envFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".env"
-if (-not (Test-Path $envFile)) {
-    throw "Не найден .env. Сначала scripts\migrate_env.py"
-}
+if (-not (Test-Path $envFile)) { throw ".env not found. Run scripts\migrate_env.py first." }
 
 $dbLine = Get-Content $envFile | Where-Object { $_ -match '^DATABASE_URL=' } | Select-Object -First 1
-if (-not $dbLine) { throw "DATABASE_URL не найден в .env" }
+if (-not $dbLine) { throw "DATABASE_URL not found in .env" }
 $dbUrl = $dbLine.Substring("DATABASE_URL=".Length)
-if ($dbUrl -notmatch '://[^:]+:([^@]+)@') { throw "Не удалось разобрать DATABASE_URL" }
+if ($dbUrl -notmatch '://[^:]+:([^@]+)@') { throw "Cannot parse DATABASE_URL" }
 $appPass = [Uri]::UnescapeDataString($Matches[1])
-if ($appPass -eq "change-me") { throw "В .env остался пароль change-me" }
+if ($appPass -eq "change-me") { throw "DATABASE_URL still contains change-me" }
 
-$secure = Read-Host "Новый пароль для роли postgres" -AsSecureString
+$secure = Read-Host "New password for the postgres role" -AsSecureString
 $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
 try {
     $pgPass = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
@@ -38,40 +40,75 @@ try {
 
 function Escape-Sql([string]$value) { return $value.Replace("'", "''") }
 
-$sql = @"
+$original = [IO.File]::ReadAllText($Hba)
+$trustRules = "host all all 127.0.0.1/32 trust`r`nhost all all ::1/128 trust`r`n"
+
+function Reload-Postgres {
+    & "$PgBin\pg_ctl.exe" reload -D $DataDir 2>&1 | Out-Null
+    Start-Sleep -Seconds 2
+}
+
+try {
+    [IO.File]::WriteAllText($Hba, $trustRules + $original, (New-Object Text.UTF8Encoding $false))
+    Reload-Postgres
+
+    $candidates = @(
+        "NetworkService",
+        "NT AUTHORITY\NetworkService",
+        "NT AUTHORITY\SYSTEM",
+        "NT SERVICE\postgresql-x64-16",
+        "postgresql-x64-16",
+        "postgres",
+        "rp",
+        "Administrator",
+        "SYSTEM",
+        $env:USERNAME,
+        "$env:USERDOMAIN\$env:USERNAME"
+    ) | Select-Object -Unique
+    $super = $null
+    foreach ($candidate in $candidates) {
+        $isSuper = & "$PgBin\psql.exe" -w -U $candidate -d postgres -tAc `
+            "select rolsuper from pg_roles where rolname = current_user" 2>$null
+        if ($LASTEXITCODE -eq 0 -and $isSuper -and $isSuper.Trim() -eq "t") {
+            $super = $candidate
+            break
+        }
+    }
+
+    if (-not $super) {
+        $roles = & "$PgBin\psql.exe" -w -U postgres -d postgres -tAc `
+            "select rolname from pg_authid order by 1" 2>$null
+        throw "No superuser role found among candidates. Roles visible: $roles"
+    }
+    Write-Host "Connected as superuser: $super"
+
+    $sql = @"
 DO `$`$ BEGIN IF NOT EXISTS (SELECT FROM pg_authid WHERE rolname = 'postgres') THEN CREATE ROLE postgres SUPERUSER LOGIN; END IF; END `$`$;
 ALTER ROLE postgres WITH SUPERUSER LOGIN PASSWORD '$(Escape-Sql $pgPass)';
 DO `$`$ BEGIN IF NOT EXISTS (SELECT FROM pg_authid WHERE rolname = 'rompetr_app') THEN CREATE ROLE rompetr_app LOGIN; END IF; END `$`$;
 ALTER ROLE rompetr_app WITH LOGIN PASSWORD '$(Escape-Sql $appPass)';
-SELECT rolname FROM pg_authid ORDER BY 1;
 "@
+    $tmp = Join-Path $env:TEMP "pg_recover.sql"
+    [IO.File]::WriteAllText($tmp, $sql, (New-Object Text.UTF8Encoding $false))
 
-$tmp = Join-Path $env:TEMP "pg_recover.sql"
-[IO.File]::WriteAllText($tmp, $sql, (New-Object Text.UTF8Encoding $false))
-
-Write-Host "Останавливаю службу $Service..."
-Stop-Service -Name $Service -Force
-
-try {
-    Write-Host "Запускаю single-user режим..."
-    Get-Content -Path $tmp -Encoding UTF8 | & "$PgBin\postgres.exe" --single -D $DataDir postgres
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warning "postgres --single завершился с кодом $LASTEXITCODE"
+    try {
+        & "$PgBin\psql.exe" -w -v ON_ERROR_STOP=1 -U $super -d postgres -f $tmp
+        if ($LASTEXITCODE -ne 0) { throw "psql failed with exit code $LASTEXITCODE" }
+    } finally {
+        Remove-Item $tmp -Force -ErrorAction SilentlyContinue
     }
 } finally {
-    Remove-Item $tmp -Force -ErrorAction SilentlyContinue
-    Write-Host "Запускаю службу $Service..."
-    Start-Service -Name $Service
+    [IO.File]::WriteAllText($Hba, $original, (New-Object Text.UTF8Encoding $false))
+    Reload-Postgres
 }
 
-Start-Sleep -Seconds 2
 Write-Host ""
-Write-Host "Готово. Проверка подключения:"
+Write-Host "Done. Verifying connection as postgres:"
 try {
     $env:PGPASSWORD = $pgPass
-    & "$PgBin\psql.exe" -U postgres -d postgres -c "select current_user, version();" 2>&1 | Select-Object -First 3
+    & "$PgBin\psql.exe" -h 127.0.0.1 -U postgres -d postgres -tAc "select current_user"
 } finally {
     Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
 }
 Write-Host ""
-Write-Host "Дальше: .venv\Scripts\python.exe scripts\init_db.py"
+Write-Host "Next: .venv\Scripts\python.exe scripts\init_db.py"
