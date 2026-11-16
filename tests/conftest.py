@@ -15,6 +15,7 @@ os.environ.setdefault("COOKIE_SECURE", "false")
 os.environ.setdefault("ADM_PASSW", "test-admin-password-12345")
 os.environ.setdefault("ADMIN_EMAIL", "admin@example.com")
 os.environ.setdefault("EMAIL_MODE", "dev")
+os.environ.setdefault("WORKER_INPROCESS", "false")
 
 
 @pytest.fixture(scope="session", autouse=True)

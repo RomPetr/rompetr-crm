@@ -82,6 +82,7 @@ class Settings(BaseSettings):
 
     worker_poll_sec: int = 2
     worker_id: str = "local-1"
+    worker_inprocess: bool = False
 
     feature_ai_check: bool = True
     feature_compose: bool = False

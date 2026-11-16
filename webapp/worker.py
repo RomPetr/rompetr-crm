@@ -4,7 +4,7 @@ import json
 import logging
 import signal
 import sys
-import time
+import threading
 from datetime import date, datetime, timezone
 from datetime import time as dt_time
 from pathlib import Path
@@ -136,6 +136,20 @@ def run_once(worker_id: str) -> bool:
         db.close()
 
 
+def loop(stop: threading.Event, worker_id: str) -> None:
+    settings = get_settings()
+    log.info("worker %s started", worker_id)
+    while not stop.is_set():
+        try:
+            did_work = run_once(worker_id)
+        except Exception:  # noqa: BLE001
+            log.exception("worker iteration failed")
+            did_work = False
+        if not did_work:
+            stop.wait(settings.worker_poll_sec)
+    log.info("worker stopped")
+
+
 def main() -> int:
     import argparse
 
@@ -148,19 +162,15 @@ def main() -> int:
         processed = run_once(settings.worker_id)
         print("job processed" if processed else "queue is empty")
         return 0
-    stop = {"flag": False}
+
+    stop = threading.Event()
 
     def handler(signum, frame):  # type: ignore[no-untyped-def]
-        stop["flag"] = True
+        stop.set()
 
     signal.signal(signal.SIGINT, handler)
     signal.signal(signal.SIGTERM, handler)
-    log.info("worker %s started", settings.worker_id)
-    while not stop["flag"]:
-        did_work = run_once(settings.worker_id)
-        if not did_work:
-            time.sleep(settings.worker_poll_sec)
-    log.info("worker stopped")
+    loop(stop, settings.worker_id)
     return 0
 
 

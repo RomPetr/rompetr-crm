@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -39,7 +40,30 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
         log.warning("admin bootstrap skipped: %s", exc)
     finally:
         db.close()
-    yield
+
+    worker_stop = None
+    worker_thread = None
+    if settings.worker_inprocess:
+        from webapp.worker import loop
+
+        worker_stop = threading.Event()
+        worker_thread = threading.Thread(
+            target=loop,
+            args=(worker_stop, f"{settings.worker_id}-inproc"),
+            daemon=True,
+            name="crm-worker",
+        )
+        worker_thread.start()
+        log.info("in-process worker started")
+
+    try:
+        yield
+    finally:
+        if worker_stop is not None:
+            worker_stop.set()
+            if worker_thread is not None:
+                worker_thread.join(timeout=10)
+            log.info("in-process worker stopped")
 
 
 def create_app() -> FastAPI:
