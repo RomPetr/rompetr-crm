@@ -48,6 +48,8 @@ CP: поиск новости
   │
   ├─ Pixly: создать <base>-image-1.png
   │
+  ├─ CP: создать <base>.md для ручного копирования
+  │
   ├─ CP: опубликовать platforms.vk.content в VK
   │
   ├─ CP: опубликовать platforms.telegram.content + image-1 в Telegram (bot.py)
@@ -69,12 +71,14 @@ CP: поиск новости
 posts/
   2026-11-11-000000-crypto-ai-social-content/
     2026-11-11-000000-crypto-ai-social-content.json
+    2026-11-11-000000-crypto-ai-social-content.md
     2026-11-11-000000-crypto-ai-social-content-image-1.png
 ```
 
 - `<base>` = `YYYY-MM-DD-HHMMSS-crypto-ai-social-content`.
 - Время в имени — локальное UTC+8, момент создания.
 - JSON — единственный источник текста для публикации.
+- MD — та же новость без служебных символов: настоящие переносы строк, удобно копировать вручную. Создаётся `scripts/json_to_md.py`.
 - Одна PNG — кинематографичная 3D-иллюстрация главной идеи новости.
 
 ---
