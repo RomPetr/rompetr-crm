@@ -238,3 +238,45 @@ def reject_post(
     )
     db.commit()
     return RedirectResponse("/admin/posts", status_code=303)
+
+
+@router.get("/publications")
+def publications_list(
+    request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+):
+    from webapp.models.content import Publication
+
+    rows = db.execute(
+        select(Publication, Post)
+        .join(Post, Post.id == Publication.post_id)
+        .order_by(Publication.updated_at.desc())
+    ).all()
+    return render(request, "admin/publications.html", admin=admin, rows=rows)
+
+
+@router.post("/publications/{publication_id}/mark-published")
+def mark_publication_published(
+    publication_id: int,
+    url: str = Form(""),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from webapp.models.content import Publication
+
+    publication = db.get(Publication, publication_id)
+    if publication is None:
+        raise HTTPException(status_code=404)
+    if publication.platform != "x":
+        raise HTTPException(status_code=400, detail="Ручная отметка доступна только для X")
+    publication.status = "published"
+    publication.external_url = url.strip() or publication.external_url
+    publication.published_at = datetime.now(timezone.utc)
+    audit.log_action(
+        db,
+        "admin.x_marked_published",
+        actor_id=admin.id,
+        entity_type="publication",
+        entity_id=str(publication.id),
+    )
+    db.commit()
+    return RedirectResponse("/admin/publications", status_code=303)

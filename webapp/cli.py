@@ -72,6 +72,23 @@ def stats(args: argparse.Namespace) -> int:
         db.close()
 
 
+def publish_due(args: argparse.Namespace) -> int:
+    from webapp.services.scheduler import publish_due as run_due
+
+    db = SessionLocal()
+    try:
+        results = run_due(db)
+        if not results:
+            print("Нет постов, готовых к публикации по расписанию")
+            return 0
+        for post_id, outcomes in results:
+            states = ", ".join(f"{item.platform}={item.status}" for item in outcomes)
+            print(f"post {post_id}: {states}")
+        return 0
+    finally:
+        db.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="webapp.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -83,6 +100,9 @@ def main(argv: list[str] | None = None) -> int:
 
     s = sub.add_parser("stats", help="показать счётчики")
     s.set_defaults(func=stats)
+
+    due = sub.add_parser("publish-due", help="опубликовать посты с наступившим scheduled_at")
+    due.set_defaults(func=publish_due)
 
     args = parser.parse_args(argv)
     return args.func(args)

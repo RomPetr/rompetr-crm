@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Публикации — админка{% endblock %}
+{% block content %}
+<h1>Публикации</h1>
+<div class="table-wrap">
+<table class="table">
+  <thead><tr><th>ID</th><th>Пост</th><th>Площадка</th><th>Статус</th><th>Ссылка</th><th>Действия</th></tr></thead>
+  <tbody>
+  {% for pub, post in rows %}
+    <tr>
+      <td>{{ pub.id }}</td>
+      <td><a href="/drafts/{{ post.id }}">{{ post.title or post.base_slug }}</a></td>
+      <td>{{ pub.platform }}</td>
+      <td>{{ pub.status }}</td>
+      <td>
+        {% if pub.external_url %}
+          <a href="{{ pub.external_url }}" target="_blank" rel="noopener">открыть</a>
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        {% if pub.platform == "x" and pub.status == "manual_pending" %}
+        <form method="post" action="/admin/publications/{{ pub.id }}/mark-published" class="actions-cell">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input name="url" placeholder="https://x.com/..." required>
+          <button class="button small" type="submit">Отметить</button>
+        </form>
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="muted">Публикаций пока нет.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

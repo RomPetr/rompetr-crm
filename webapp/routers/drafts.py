@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 
 from webapp.db import get_db
 from webapp.deps import csrf_protect, require_user
-from webapp.models.content import Asset, Post
+from webapp.models.content import Asset, Post, Publication
 from webapp.models.user import User
 from webapp.services import audit, media, posts
+from webapp.services import publish as publish_service
 from webapp.templating import render
 
 router = APIRouter(
@@ -71,12 +72,16 @@ def edit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
     user: User = request.state.user
     post = _get_post(db, post_id, user)
     asset = media.primary_asset(db, post)
+    publications = db.execute(
+        select(Publication).where(Publication.post_id == post.id).order_by(Publication.platform)
+    ).scalars().all()
     return render(
         request,
         "drafts/edit.html",
         post=post,
         values=_values(post),
         asset=asset,
+        publications=publications,
         editable=posts.can_edit(post, user),
         message=request.query_params.get("ok"),
         error=request.query_params.get("error"),
@@ -184,14 +189,33 @@ def delete_asset(post_id: int, asset_id: int, request: Request, db: Session = De
 
 
 @router.post("/drafts/{post_id}/publish")
-def publish_placeholder(post_id: int, request: Request, db: Session = Depends(get_db)):
+def publish_now(post_id: int, request: Request, db: Session = Depends(get_db)):
     user: User = request.state.user
     post = _get_post(db, post_id, user)
     if user.role == "guest":
         raise HTTPException(status_code=403, detail="Гостевой доступ не позволяет публиковать")
-    if post.status != "approved":
+    if post.status not in {"approved", "published"}:
         raise HTTPException(status_code=400, detail="Публикация доступна только для одобренного поста")
-    raise HTTPException(status_code=501, detail="Публикация будет подключена на этапе 4")
+    try:
+        outcomes = publish_service.publish_post(db, post, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    audit.log_action(
+        db,
+        "post.published",
+        actor_id=user.id,
+        entity_type="post",
+        entity_id=str(post.id),
+        meta={item.platform: item.status for item in outcomes},
+    )
+    db.commit()
+    failed = [item.platform for item in outcomes if item.status in {"failed", "unknown"}]
+    if failed:
+        return RedirectResponse(
+            f"/drafts/{post_id}?error=Не удалось опубликовать: {', '.join(failed)}",
+            status_code=303,
+        )
+    return RedirectResponse(f"/drafts/{post_id}?ok=published", status_code=303)
 
 
 @router.post("/drafts/{post_id}/archive")

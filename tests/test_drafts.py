@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import re
+from types import SimpleNamespace
 
 from PIL import Image
 
@@ -61,7 +62,19 @@ def login(client, username: str, password: str) -> None:
     assert response.status_code == 303, response.text
 
 
-def test_draft_flow_and_moderation(client):
+def test_draft_flow_and_moderation(client, monkeypatch):
+    monkeypatch.setattr(
+        "webapp.services.vk.publish",
+        lambda text: SimpleNamespace(
+            ok=True, external_id="37", url="https://vk.com/wall-1_37", error=None, unknown=False
+        ),
+    )
+    monkeypatch.setattr(
+        "webapp.services.telegram.publish",
+        lambda text, image_path: SimpleNamespace(
+            ok=True, external_id="17", url="https://t.me/test/17", error=None, unknown=False
+        ),
+    )
     login(client, "admin", "test-admin-password-12345")
     token = csrf(client)
 
@@ -88,8 +101,11 @@ def test_draft_flow_and_moderation(client):
     )
     assert approved.status_code == 303
 
-    publish = client.post(f"/drafts/{post_id}/publish", data={"csrf_token": token})
-    assert publish.status_code == 501
+    publish = client.post(f"/drafts/{post_id}/publish", data={"csrf_token": token}, follow_redirects=False)
+    assert publish.status_code == 303
+    page = client.get(f"/drafts/{post_id}")
+    assert "Публикации" in page.text
+    assert "manual_pending" in page.text
 
 
 def test_image_upload_and_private_media(client):

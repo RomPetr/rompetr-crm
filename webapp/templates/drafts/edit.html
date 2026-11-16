@@ -11,6 +11,7 @@
 {% if message == "submitted" %}<p class="ok">Отправлено на проверку администратору.</p>{% endif %}
 {% if message == "image" %}<p class="ok">Изображение загружено.</p>{% endif %}
 {% if message == "image_deleted" %}<p class="ok">Изображение удалено.</p>{% endif %}
+{% if message == "published" %}<p class="ok">Публикация выполнена.</p>{% endif %}
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 {% if check_errors %}
   <div class="error">
@@ -125,6 +126,44 @@
     <button class="button small secondary" type="submit">Удалить изображение</button>
   </form>
   {% endif %}
+</section>
+{% endif %}
+
+{% if publications %}
+<section class="card note">
+  <h2>Публикации</h2>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Площадка</th><th>Статус</th><th>Ссылка</th><th>Ошибка</th></tr></thead>
+    <tbody>
+    {% for pub in publications %}
+      <tr>
+        <td>{{ pub.platform }}</td>
+        <td>{{ pub.status }}</td>
+        <td>
+          {% if pub.external_url %}
+            <a href="{{ pub.external_url }}" target="_blank" rel="noopener">
+              {% if pub.platform == "x" %}готовый текст X{% else %}открыть{% endif %}
+            </a>
+          {% else %}—{% endif %}
+        </td>
+        <td class="muted">{{ pub.last_error or "—" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+
+{% if post.status in ["approved", "published"] and user and user.role != "guest" %}
+<section class="card note">
+  <h2>Публикация</h2>
+  <p class="muted">VK и Telegram уйдут сразу. X появится как ручная очередь с готовой ссылкой.</p>
+  <form method="post" action="/drafts/{{ post.id }}/publish">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="button" type="submit">Опубликовать</button>
+  </form>
 </section>
 {% endif %}
 

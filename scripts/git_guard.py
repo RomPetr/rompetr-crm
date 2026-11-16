@@ -126,8 +126,7 @@ def run_git(repo: Path, *args: str) -> bytes:
         proc = subprocess.run(
             ["git", *args],
             cwd=str(repo),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=False,
         )
     except OSError as exc:
