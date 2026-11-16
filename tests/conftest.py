@@ -25,6 +25,15 @@ def database():
 
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
+
+    from webapp.db import SessionLocal
+    from webapp.services.bootstrap import ensure_root_admin
+
+    db = SessionLocal()
+    try:
+        ensure_root_admin(db)
+    finally:
+        db.close()
     yield
     Base.metadata.drop_all(engine)
 

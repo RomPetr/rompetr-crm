@@ -22,6 +22,10 @@ def texts() -> dict[str, str]:
 
 
 def make_draft(db, title: str):
+    from webapp.models.system import Job
+
+    db.query(Job).filter(Job.status.in_(["queued", "running"])).delete()
+    db.commit()
     admin = db.get(User, 0)
     post = posts.create_draft(db, admin, title)
     posts.apply_form(
@@ -187,5 +191,53 @@ def test_document_for_contains_only_enabled_platforms():
         document = document_for(post)
         assert set(document["platforms"]) == {"telegram", "x"}
         assert document["image_prompt"] == ""
+    finally:
+        db.close()
+
+
+def test_compose_news_job(monkeypatch):
+    import json
+
+    from webapp.config import ROOT
+
+    def fake_run(prompt, job_id, timeout_sec=None, allowed_tools=None):
+        path = ROOT / "var" / "jobs" / job_id / "post.json"
+        data = {
+            "schema_version": "crypto-ai-social-content/v1",
+            "source": {
+                "title": "Generated news title",
+                "url": "https://www.theblock.co/news/generated",
+                "published_at": "2026-11-16",
+                "publisher": "The Block",
+            },
+            "image_prompt": "Cinematic 3D illustration of a generated news scene, dark fintech aesthetic.",
+            "platforms": {name: {"content": text} for name, text in texts().items()},
+        }
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        return SimpleNamespace(
+            exit_code=0, stdout="", stderr="", parsed={"result": "PASS"}, timed_out=False, log_path=None
+        )
+
+    monkeypatch.setattr("webapp.worker.claude_runner.run", fake_run)
+    monkeypatch.setattr(
+        "webapp.services.images.generate",
+        lambda db, post, user_id, model=None: SimpleNamespace(id=55, storage_key="posts/x/55.png", bytes=10),
+    )
+
+    db = SessionLocal()
+    try:
+        post = make_draft(db, "Compose target")
+        job = jobs.enqueue(
+            db, "compose_news", post, created_by=0, payload={"model": "gpt-image-1-mini"}
+        )
+        db.commit()
+        process(db, job)
+        db.refresh(job)
+        db.refresh(post)
+        assert job.status == "succeeded", job.error
+        assert post.source_publisher == "The Block"
+        assert post.source_title == "Generated news title"
+        assert post.platforms["telegram"].startswith("Т")
+        assert job.payload["result"]["asset_id"] == 55
     finally:
         db.close()

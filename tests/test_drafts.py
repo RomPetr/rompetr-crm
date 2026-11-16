@@ -377,3 +377,31 @@ def test_ai_change_badge(client):
     page = client.get(f"/drafts/{post_id}")
     assert "Исправлено" in page.text
     assert "changed-field" in page.text
+
+
+def test_compose_news_button_admin_only(client):
+    login(client, "admin", "test-admin-password-12345")
+    token = csrf(client)
+    created = client.post(
+        "/drafts/new", data={"csrf_token": token, "title": "Генерация"}, follow_redirects=False
+    )
+    post_id = int(created.headers["location"].rstrip("/").split("/")[-1])
+    page = client.get(f"/drafts/{post_id}")
+    assert "Сгенерировать новость" in page.text
+
+    queued = client.post(
+        f"/drafts/{post_id}/generate-news",
+        data={"csrf_token": token, "model": "gpt-image-1-mini"},
+        follow_redirects=False,
+    )
+    assert queued.status_code == 303
+    assert "job=" in queued.headers["location"]
+
+    login(client, "guest2", "guest2-password-123")
+    guest_token = csrf(client)
+    denied = client.post(
+        f"/drafts/{post_id}/generate-news",
+        data={"csrf_token": guest_token, "model": "gpt-image-1-mini"},
+        follow_redirects=False,
+    )
+    assert denied.status_code in {403, 404}

@@ -18,7 +18,7 @@ from webapp.db import SessionLocal
 from webapp.logging import configure_logging
 from webapp.models.content import Post
 from webapp.models.system import Job
-from webapp.schemas.post_document import PostDocumentPartial
+from webapp.schemas.post_document import PostDocument, PostDocumentPartial, validate_document
 from webapp.services import claude_runner, images, jobs
 from webapp.services import posts as posts_service
 
@@ -142,12 +142,106 @@ def run_generate_image(db: Session, job: Job) -> dict:
     return {"asset_id": asset.id, "storage_key": asset.storage_key, "bytes": asset.bytes}
 
 
+
+def _compose_prompt(path: Path) -> str:
+    return f"""Ты Content Plant для сообщества «Разум DEX». Найди одну свежую новость за сегодня или вчера и запиши её в JSON {path}.
+
+Источники (используй WebFetch):
+- The Block: https://www.theblock.co/rss.xml
+- The Defiant: https://thedefiant.io/api/feed
+- Blockworks: https://blockworks.co/feed
+- CoinDesk: https://www.coindesk.com/arc/outboundfeeds/rss/
+- Decrypt: https://decrypt.co/feed
+
+Приоритет: DEX/AMM/DeFi, AI-агенты, торговые боты, кошельки и безопасность, on-chain-аналитика, регулирование. Не бери чистые движения цены. Открой статью через WebFetch и проверь факты.
+
+Запиши JSON строго по схеме:
+schema_version "crypto-ai-social-content/v1";
+source: title, url полной статьи, published_at YYYY-MM-DD, publisher одно из The Block, The Defiant, Blockworks, CoinDesk, Decrypt;
+image_prompt: английский, 2-4 предложения, без текста/логотипов/людей;
+platforms: telegram, instagram, x, tiktok, vk, у каждой content.
+
+Правила текстов:
+- русский для telegram, vk, instagram, tiktok; x только английский.
+- Последняя строка каждой площадки — ссылка на главную источника: The Block https://www.theblock.co/, The Defiant https://thedefiant.io/, Blockworks https://blockworks.co/, CoinDesk https://www.coindesk.com/, Decrypt https://decrypt.co/.
+- Telegram 800–1024 символа включая ссылку, без хэштегов.
+- VK 700–1500 символов включая ссылку; хэштеги не обязательны.
+- Instagram 100–200 слов включая ссылку, 5–10 хэштегов.
+- TikTok 50–120 слов включая ссылку, 3–5 хэштегов.
+- X до 280 символов включая ссылку.
+- Факты, цифры и даты — только из источника. Без обещаний доходности и секретов.
+Правь файл через Write. В ответе верни короткий PASS и заголовок новости."""
+
+
+def run_compose_news(db: Session, job: Job) -> dict:
+    post = db.get(Post, job.post_id) if job.post_id else None
+    if post is None:
+        raise RuntimeError("Пост не найден")
+    folder = ROOT / "var" / "jobs" / job.public_id
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "post.json"
+
+    result = claude_runner.run(
+        _compose_prompt(path),
+        job.public_id,
+        timeout_sec=1200,
+        allowed_tools=("Read", "Write", "WebFetch", "WebSearch"),
+    )
+    if result.timed_out:
+        raise RuntimeError(f"Генерация новости не уложилась в таймаут. Лог: {result.log_path}")
+    if result.exit_code != 0:
+        detail = (result.stderr or "").strip() or str((result.parsed or {}).get("result") or "")
+        raise RuntimeError(f"Claude Code exit {result.exit_code}: {detail}. Лог: {result.log_path}")
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        document = PostDocument.model_validate(data)
+    except Exception as exc:
+        raise RuntimeError(f"Сгенерированный JSON невалиден: {exc}") from exc
+
+    source = {
+        "title": document.source.title,
+        "url": str(document.source.url),
+        "published_at": document.source.published_at,
+        "publisher": document.source.publisher,
+    }
+    platforms = {name: getattr(document.platforms, name).content for name in PLATFORMS}
+    errors = validate_document(source, document.image_prompt, platforms)
+    if errors:
+        raise RuntimeError("Новость не прошла проверку: " + "; ".join(errors[:6]))
+
+    post.title = document.source.title[:300]
+    post.source_title = document.source.title
+    post.source_url = str(document.source.url)
+    post.source_publisher = document.source.publisher
+    post.source_published_at = datetime.combine(
+        document.source.published_at, dt_time.min, tzinfo=timezone.utc
+    )
+    post.image_prompt = document.image_prompt
+    post.image_enabled = True
+    post.platforms = platforms
+    post.platforms_enabled = {name: True for name in PLATFORMS}
+    post.version += 1
+    db.flush()
+
+    asset = images.generate(db, post, job.created_by, (job.payload or {}).get("model"))
+    return {
+        "title": post.title,
+        "publisher": post.source_publisher,
+        "source_url": post.source_url,
+        "asset_id": asset.id,
+        "log": result.log_path,
+    }
+
+
 def process(db: Session, job: Job) -> None:
     try:
         if job.type == "ai_check":
             result = run_ai_check(db, job)
         elif job.type == "generate_image":
             result = run_generate_image(db, job)
+        elif job.type == "compose_news":
+            result = run_compose_news(db, job)
         else:
             raise RuntimeError(f"Неизвестный тип задачи: {job.type}")
     except Exception as exc:  # noqa: BLE001

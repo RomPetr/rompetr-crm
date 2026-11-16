@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
 
     worker_stop = None
     worker_thread = None
-    if settings.worker_inprocess:
+    if settings.worker_inprocess and settings.app_env != "test":
         from webapp.worker import loop
 
         worker_stop = threading.Event()

@@ -324,3 +324,32 @@ def download_asset(post_id: int, asset_id: int, request: Request, db: Session = 
     path = media.asset_path(asset)
     filename = f"{post.base_slug}-image-{asset.id}.png"
     return FileResponse(path, media_type=asset.mime, filename=filename)
+
+
+@router.post("/drafts/{post_id}/generate-news")
+def enqueue_compose_news(
+    post_id: int,
+    request: Request,
+    model: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    from webapp.services.images import IMAGE_MODELS
+
+    user: User = request.state.user
+    post = _get_post(db, post_id, user)
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Генерация новости доступна только админу")
+    selected = model if model in IMAGE_MODELS else IMAGE_MODELS[0]
+    job = jobs.enqueue(
+        db, "compose_news", post, created_by=user.id, payload={"model": selected}
+    )
+    audit.log_action(
+        db,
+        "post.compose_queued",
+        actor_id=user.id,
+        entity_type="post",
+        entity_id=str(post.id),
+        meta={"model": selected},
+    )
+    db.commit()
+    return RedirectResponse(f"/drafts/{post_id}?ok=queued_news&job={job.id}", status_code=303)

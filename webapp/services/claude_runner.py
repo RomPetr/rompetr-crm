@@ -43,7 +43,12 @@ def _kill_tree(proc: subprocess.Popen) -> None:
             pass
 
 
-def run(prompt: str, job_id: str, timeout_sec: int | None = None) -> RunResult:
+def run(
+    prompt: str,
+    job_id: str,
+    timeout_sec: int | None = None,
+    allowed_tools: tuple[str, ...] | None = None,
+) -> RunResult:
     settings = get_settings()
     timeout = timeout_sec or settings.claude_timeout_sec
     log_dir = ROOT / "var" / "jobs"
@@ -60,11 +65,7 @@ def run(prompt: str, job_id: str, timeout_sec: int | None = None) -> RunResult:
         "--permission-mode",
         "dontAsk",
         "--allowedTools",
-        "Read",
-        "Edit",
-        "Write",
-        "Grep",
-        "Glob",
+        *(allowed_tools or ("Read", "Edit", "Write", "Grep", "Glob")),
         "--disallowedTools",
         "Bash(curl *)",
         "Bash(wget *)",

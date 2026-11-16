@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from webapp.models.content import Post
 from webapp.models.system import Job
 
-JOB_TYPES = ("ai_check", "generate_image")
+JOB_TYPES = ("ai_check", "generate_image", "compose_news")
 
 
 def _key(post: Post, job_type: str, extra: str = "") -> str:
@@ -46,8 +46,8 @@ def enqueue(
     if active is not None:
         return active
 
-    if job_type == "generate_image" and idempotency_key is None:
-        key = f"{post.public_id}:generate_image:{uuid.uuid4().hex}"
+    if job_type in {"generate_image", "compose_news"} and idempotency_key is None:
+        key = f"{post.public_id}:{job_type}:{uuid.uuid4().hex}"
     else:
         key = idempotency_key or _key(post, job_type)
 

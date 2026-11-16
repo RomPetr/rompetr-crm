@@ -3,6 +3,9 @@
 {% block title %}{{ post.title or "Черновик" }}
 {% endblock %}
 {% block content %}
+{% if completed_job and completed_job.type == "compose_news" and completed_job.status == "succeeded" %}
+<div class="done-banner">ГОТОВО</div>
+{% endif %}
 <div class="head-row">
   <h1>{{ post.title or "Без названия" }}</h1>
   <span class="badge">{{ post.status }}</span>
@@ -13,7 +16,7 @@
 {% if message == "image" %}<p class="ok">Изображение загружено.</p>{% endif %}
 {% if message == "image_deleted" %}<p class="ok">Изображение удалено.</p>{% endif %}
 {% if message == "published" %}<p class="ok">Публикация выполнена.</p>{% endif %}
-{% if completed_job %}
+{% if completed_job and completed_job.type != "compose_news" %}
   {% if completed_job.status == "succeeded" %}
     {% if completed_job.type == "ai_check" %}
       <p class="ok">Задача #{{ completed_job.id }} завершена: AI-перевод и проверка выполнены.</p>
@@ -29,8 +32,8 @@
   <div class="spinner" aria-hidden="true"></div>
   <h2>Задача #{{ active_job.id }} в работе</h2>
   <p>
-    {{ "AI-перевод" if active_job.type == "ai_check" else "Генерация изображения" }}
-    занимает {% if active_job.type == "ai_check" %}10–60 секунд{% else %}10–40 секунд{% endif %}.
+    {% if active_job.type == "ai_check" %}AI-перевод{% elif active_job.type == "compose_news" %}Генерация новости{% else %}Генерация изображения{% endif %}
+    занимает {% if active_job.type == "ai_check" %}10–60 секунд{% elif active_job.type == "compose_news" %}60–180 секунд{% else %}10–40 секунд{% endif %}.
     Страница обновится автоматически, когда задача завершится.
   </p>
   <p class="muted">Прошло: <span id="job-timer">0</span> с · статус: <span id="job-status">{{ active_job.status }}</span></p>
@@ -164,6 +167,20 @@
     <h2>Модерация</h2>
     <p class="muted">Отправить админу или модератору на одобрение.</p>
     <button class="button secondary" type="submit">На проверку</button>
+  </form>
+  {% endif %}
+  {% if user and user.role == "admin" %}
+  <form method="post" action="/drafts/{{ post.id }}/generate-news" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <h2>Сгенерировать новость</h2>
+    <p class="muted">Полный цикл: поиск новости, JSON, проверка, поля площадок и картинка. Может занять до нескольких минут.</p>
+    <label>Модель изображения
+      <select name="model">
+        <option value="black-forest-labs/flux.2-pro">Flux.2 Pro</option>
+        <option value="gpt-image-1-mini">GPT Image 1 mini</option>
+      </select>
+    </label>
+    <button class="button" type="submit">Запустить</button>
   </form>
   {% endif %}
   <form method="post" action="/drafts/{{ post.id }}/ai-check" class="card">

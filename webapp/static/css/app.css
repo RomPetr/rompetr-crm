@@ -254,3 +254,15 @@ select {
 }
 .field-head .toggle { margin-left: auto; }
 .field-head { align-items: center; }
+
+.done-banner {
+  background: #16a34a;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 0 0 20px;
+  font-size: 18px;
+}
