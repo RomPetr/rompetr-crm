@@ -36,3 +36,8 @@ uvicorn webapp.main:app --reload
 
 Репозиторий публичный. Любой секрет, попавший в историю, считается
 скомпрометированным. Перед первым push ротируйте VK, Telegram и ProxyAPI ключи.
+
+## Worker: dev и VPS
+
+- Локально: `WORKER_INPROCESS=true` — очередь `jobs` обрабатывается фоновым потоком внутри веб-приложения. Отдельный процесс не нужен.
+- На VPS: `WORKER_INPROCESS=false` и отдельный systemd-юнит `python -m webapp.worker`; авторизация — `CLAUDE_CODE_OAUTH_TOKEN` из `claude setup-token`.

@@ -80,11 +80,28 @@ def run(prompt: str, job_id: str, timeout_sec: int | None = None) -> RunResult:
         "--no-session-persistence",
     ]
 
-    env = {
-        key: value
-        for key, value in os.environ.items()
-        if key in {"PATH", "HOME", "USERPROFILE", "LANG", "TMPDIR", "TEMP", "TMP", "SYSTEMROOT"}
+    allowed_env = {
+        "PATH",
+        "PATHEXT",
+        "HOME",
+        "USERPROFILE",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "SYSTEMDRIVE",
+        "SYSTEMROOT",
+        "WINDIR",
+        "COMSPEC",
+        "LANG",
+        "TMPDIR",
+        "TEMP",
+        "TMP",
+        "ANTHROPIC_AUTH_TOKEN",
+        "ANTHROPIC_BASE_URL",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
     }
+    env = {key: value for key, value in os.environ.items() if key.upper() in allowed_env}
     token = settings.claude_code_oauth_token.get_secret_value()
     if token:
         env["CLAUDE_CODE_OAUTH_TOKEN"] = token
