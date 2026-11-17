@@ -165,6 +165,7 @@ posts/             данные постов (в git не попадают)
 - `docs/CRM-PLAN.md` — план и чек-лист этапов.
 - `docs/DEPLOY-JOURNAL.md` — хронология решений и чек-лист деплоя на VPS.
 - `.claude/plans/crm-web-platform.yaml` — машинная спецификация.
+- `.claude/skills/rompetr-crm/SKILL.md` — скилл для Claude Code: структура, запуск, правки, проверки и публикация.
 - `PIPELINE.md`, `PUBLISH-COMMAND.md` — старый конвейер Content Plant.
 
 ---
