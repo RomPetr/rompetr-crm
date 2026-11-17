@@ -2,6 +2,13 @@
 {% block title %}Публикации — админка{% endblock %}
 {% block content %}
 <h1>Публикации</h1>
+{% if request.query_params.get("x") == "opened" %}
+  <p class="ok">Chrome-композер X открыт: текст и картинка уже вставлены, нажмите «Post».</p>
+{% elif request.query_params.get("x") == "no_image" %}
+  <p class="error">У поста нет изображения — сначала сгенерируйте или загрузите PNG.</p>
+{% elif request.query_params.get("x") == "unavailable" %}
+  <p class="error">Локальный Chrome-композер недоступен. Скачайте картинку и прикрепите вручную.</p>
+{% endif %}
 <div class="table-wrap">
 <table class="table">
   <thead><tr><th>ID</th><th>Пост</th><th>Площадка</th><th>Статус</th><th>Ссылка</th><th>Действия</th></tr></thead>
@@ -19,11 +26,18 @@
       </td>
       <td>
         {% if pub.platform == "x" and pub.status == "manual_pending" %}
-        <form method="post" action="/admin/publications/{{ pub.id }}/mark-published" class="actions-cell">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <input name="url" placeholder="https://x.com/..." required>
-          <button class="button small" type="submit">Отметить</button>
-        </form>
+        <div class="actions-cell">
+          <form method="post" action="/admin/publications/{{ pub.id }}/x-compose">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="button small" type="submit">Открыть X с картинкой</button>
+          </form>
+          <a class="button small secondary" href="/admin/publications/{{ pub.id }}/image">Скачать картинку</a>
+          <form method="post" action="/admin/publications/{{ pub.id }}/mark-published" class="actions-cell">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input name="url" placeholder="https://x.com/..." required>
+            <button class="button small secondary" type="submit">Отметить</button>
+          </form>
+        </div>
         {% else %}<span class="muted">—</span>{% endif %}
       </td>
     </tr>

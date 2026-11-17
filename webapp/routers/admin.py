@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import json
+import os
+import shutil
+import subprocess
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -352,3 +356,83 @@ def cancel_job(
     audit.log_action(db, "admin.job_cancelled", actor_id=admin.id, entity_type="job", entity_id=str(job.id))
     db.commit()
     return RedirectResponse("/admin/jobs", status_code=303)
+
+
+@router.get("/publications/{publication_id}/image")
+def publication_image(
+    publication_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from fastapi.responses import FileResponse
+
+    from webapp.models.content import Publication
+    from webapp.services import media
+
+    publication = db.get(Publication, publication_id)
+    if publication is None or publication.platform != "x":
+        raise HTTPException(status_code=404)
+    post = db.get(Post, publication.post_id)
+    asset = media.primary_asset(db, post) if post else None
+    if asset is None:
+        raise HTTPException(status_code=404, detail="У поста нет изображения")
+    path = media.asset_path(asset)
+    return FileResponse(path, media_type=asset.mime, filename=f"{post.base_slug}-x.png")
+
+
+@router.post("/publications/{publication_id}/x-compose")
+def open_x_composer(
+    publication_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from webapp.config import ROOT
+    from webapp.models.content import Publication
+    from webapp.services import media
+
+    publication = db.get(Publication, publication_id)
+    if publication is None or publication.platform != "x":
+        raise HTTPException(status_code=404)
+    post = db.get(Post, publication.post_id)
+    if post is None:
+        raise HTTPException(status_code=404)
+    asset = media.primary_asset(db, post)
+    if asset is None:
+        return RedirectResponse("/admin/publications?x=no_image", status_code=303)
+
+    script = ROOT / ".mcp-servers" / "x-mcp" / "x_compose.cjs"
+    node = shutil.which("node")
+    if not script.exists() or node is None:
+        return RedirectResponse("/admin/publications?x=unavailable", status_code=303)
+
+    folder = ROOT / "var" / "x-compose" / str(publication.id)
+    folder.mkdir(parents=True, exist_ok=True)
+    stem = post.base_slug
+    json_path = folder / f"{stem}.json"
+    image_path = folder / f"{stem}-image-1.png"
+    text = (post.platforms or {}).get("x", "")
+    json_path.write_text(
+        json.dumps({"platforms": {"x": {"content": text}}}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    shutil.copy2(media.asset_path(asset), image_path)
+
+    log_path = folder / "composer.log"
+    with open(log_path, "w", encoding="utf-8") as log_file:
+        subprocess.Popen(
+            [node, str(script), str(json_path)],
+            cwd=str(script.parent),
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
+        )
+    audit.log_action(
+        db,
+        "admin.x_composer_opened",
+        actor_id=admin.id,
+        entity_type="publication",
+        entity_id=str(publication.id),
+    )
+    db.commit()
+    return RedirectResponse("/admin/publications?x=opened", status_code=303)
