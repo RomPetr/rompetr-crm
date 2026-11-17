@@ -245,6 +245,13 @@ EMAIL_MODE=dev            # до настройки SMTP; письма в var/ma
 - Тесты: 35 зелёных, `ruff` чистый; добавлен bootstrap админа в тестовом fixture и изоляция очереди между тестами.
 - [VPS] Для compose_news нужен доступ WebFetch из сети VPS; при блокировке источников задача упадёт с логом.
 
+### 2026-11-17 — ошибка fallback-модели
+
+- Задача #11 `compose_news` упала: `There's an issue with the selected model (claude-haiku-5-5)`.
+- Причина: `CLAUDE_FALLBACK_MODEL=haiku` передавался даже без основной модели; CLI разворачивал алиас в недоступную `claude-haiku-5-5`.
+- Исправление: fallback добавляется только вместе с явным `CLAUDE_MODEL`; локальный fallback очищен. Проверка `claude -p` вернула exit 0.
+- [VPS] `CLAUDE_FALLBACK_MODEL` задавать только если модель реально доступна в плане.
+
 ---
 
 ## 3. Открытые вопросы
