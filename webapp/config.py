@@ -76,7 +76,7 @@ class Settings(BaseSettings):
     anthropic_base_url: str = ""
     claude_config_dir: str = ""
     claude_model: str = "sonnet"
-    claude_fallback_model: str = "haiku"
+    claude_fallback_model: str = ""
     claude_timeout_sec: int = 900
     claude_max_concurrency: int = 1
     claude_max_turns: int = 20

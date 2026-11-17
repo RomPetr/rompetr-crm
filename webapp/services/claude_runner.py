@@ -77,8 +77,8 @@ def run(
     ]
     if settings.claude_model:
         command += ["--model", settings.claude_model]
-    if settings.claude_fallback_model:
-        command += ["--fallback-model", settings.claude_fallback_model]
+        if settings.claude_fallback_model:
+            command += ["--fallback-model", settings.claude_fallback_model]
     command.append("--no-session-persistence")
 
     allowed_env = {
