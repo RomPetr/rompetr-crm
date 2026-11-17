@@ -293,6 +293,30 @@ EMAIL_MODE=dev            # до настройки SMTP; письма в var/ma
 - README переписан под публичный проект: цели, боли клиентов, возможности, архитектура, запуск, безопасность, перспективы.
 - Ключи VK/TG/ProxyAPI не ротировались по решению пользователя; в git они не попадают. При компрометации заменить.
 
+### 2026-11-17 — деплой на VPS по IP
+
+- Сервер: **62.171.228.41**, Debian 12, 2 vCPU, 6 ГБ RAM, 40 ГБ SSD, пользователь `rp` + sudo.
+- Установлены Python 3.11, PostgreSQL 15 (штатная версия Debian 12; в плане был 16), nginx, certbot, UFW, fail2ban, git.
+- Созданы `cpapp`, `cpworker`, группа `cpmedia`; код в `/srv/rompetr/crm`, venv `/srv/rompetr/venv`.
+- `.env` в `/etc/rompetr-crm/app.env`: `APP_ENV=dev`, `APP_BASE_URL=http://62.171.228.41`, `COOKIE_SECURE=false`, `WORKER_INPROCESS=false`, локальные ключи VK/TG/ProxyAPI, `CLAUDE_MODEL=sonnet`.
+- Миграции Alembic применены: 14 таблиц, админ ID 0 создан, роль active.
+- systemd: `rompetr-web` и `rompetr-worker` — active; nginx проксирует порт 80 на 127.0.0.1:8000.
+- UFW: 22/80/443; fail2ban активен.
+- Проверено публично: `http://62.171.228.41/healthz` → 200, `/login` → 200, вход admin и `/admin` → 200.
+
+Ловушки, исправленные при деплое:
+
+- `/etc/rompetr-crm` был 750 root:root — `cpapp` не читал env. Исправлено на 750 root:cpapp, файл 640.
+- `.env` скопировался с CRLF, pydantic не парсил булевы значения. Исправлено `sed -i 's/$//'`.
+- После замены `sites-enabled/default` nginx не перезагрузился: нужен `systemctl reload nginx`, одного `enable --now` недостаточно.
+
+Осталось:
+
+- [ ] Переключить `rompetr.ru` с 185.154.20.52 на 62.171.228.41 и выпустить TLS.
+- [ ] `CLAUDE_CODE_OAUTH_TOKEN` для AI-задач; без него `ai_check` и `compose_news` падают.
+- [ ] SMTP и offsite-бэкапы.
+- [ ] Проверить публикацию в тестовые VK/Telegram с VPS.
+
 ---
 
 ## 3. Открытые вопросы
