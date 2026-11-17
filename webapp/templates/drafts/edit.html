@@ -263,9 +263,12 @@
 </section>
 {% endif %}
 
-{% if post.status in ["approved", "published"] and user and user.role != "guest" %}
+{% if user and user.role != "guest" and (post.status in ["approved", "published"] or (user.role == "admin" and check_ok)) %}
 <section class="card note">
   <h2>Публикация</h2>
+  {% if post.status not in ["approved", "published"] and check_ok %}
+    <p class="ok">Проверка пройдена — можно публиковать.</p>
+  {% endif %}
   <p class="muted">VK и Telegram уйдут сразу. X появится как ручная очередь с готовой ссылкой.</p>
   <form method="post" action="/drafts/{{ post.id }}/publish">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

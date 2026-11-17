@@ -80,6 +80,9 @@ def edit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
     post = _get_post(db, post_id, user)
     asset = media.primary_asset(db, post)
     moderator = db.get(User, post.approved_by) if post.approved_by is not None else None
+    check_ok = False
+    if user.role == "admin" and post.status != "published":
+        check_ok = not posts.validate_post(post)
     latest_ai = db.execute(
         select(Job)
         .where(Job.post_id == post.id, Job.type == "ai_check", Job.status == "succeeded")
@@ -110,6 +113,7 @@ def edit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
         asset=asset,
         publications=publications,
         moderator=moderator,
+        check_ok=check_ok,
         active_job=active_job,
         completed_job=completed_job,
         ai_changes=ai_changes,
@@ -226,7 +230,13 @@ def publish_now(post_id: int, request: Request, db: Session = Depends(get_db)):
     if user.role == "guest":
         raise HTTPException(status_code=403, detail="Гостевой доступ не позволяет публиковать")
     if post.status not in {"approved", "published"}:
-        raise HTTPException(status_code=400, detail="Публикация доступна только для одобренного поста")
+        if user.role != "admin":
+            raise HTTPException(status_code=400, detail="Публикация доступна только для одобренного поста")
+        errors = posts.validate_post(post)
+        if errors:
+            raise HTTPException(status_code=400, detail="; ".join(errors[:5]))
+        posts.approve(db, post, user)
+        db.flush()
     try:
         outcomes = publish_service.publish_post(db, post, user)
     except ValueError as exc:

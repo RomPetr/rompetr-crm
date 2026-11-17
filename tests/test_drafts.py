@@ -405,3 +405,35 @@ def test_compose_news_button_admin_only(client):
         follow_redirects=False,
     )
     assert denied.status_code in {403, 404}
+
+
+def test_admin_publishes_after_check_without_manual_approval(client, monkeypatch):
+    monkeypatch.setattr(
+        "webapp.services.vk.publish",
+        lambda text: SimpleNamespace(
+            ok=True, external_id="1", url="https://vk.com/wall-1_1", error=None, unknown=False
+        ),
+    )
+    monkeypatch.setattr(
+        "webapp.services.telegram.publish",
+        lambda text, image_path: SimpleNamespace(
+            ok=True, external_id="2", url="https://t.me/x/2", error=None, unknown=False
+        ),
+    )
+
+    login(client, "admin", "test-admin-password-12345")
+    token = csrf(client)
+    created = client.post(
+        "/drafts/new", data={"csrf_token": token, "title": "Публикация после проверки"}, follow_redirects=False
+    )
+    post_id = int(created.headers["location"].rstrip("/").split("/")[-1])
+    client.post(f"/drafts/{post_id}", data=form_payload(token, 1), follow_redirects=False)
+
+    page = client.get(f"/drafts/{post_id}?ok=check")
+    assert "Проверка пройдена — можно публиковать" in page.text
+    assert "Опубликовать" in page.text
+
+    published = client.post(
+        f"/drafts/{post_id}/publish", data={"csrf_token": token}, follow_redirects=False
+    )
+    assert published.status_code == 303
