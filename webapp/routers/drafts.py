@@ -142,19 +142,80 @@ async def save_draft(post_id: int, request: Request, db: Session = Depends(get_d
 
 
 @router.post("/drafts/{post_id}/check")
-def check_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
+@router.post("/drafts/{post_id}/check")
+async def check_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
     user: User = request.state.user
     post = _get_post(db, post_id, user)
+    form = await request.form()
+    data = {key: str(value) for key, value in form.items() if isinstance(value, str)}
+
+    merged = _values(post)
+    for key in (
+        "title",
+        "source_title",
+        "source_url",
+        "source_publisher",
+        "source_published_at",
+        "image_prompt",
+        *posts.PLATFORMS,
+    ):
+        if key in data:
+            merged[key] = data[key]
+    for name in posts.PLATFORMS:
+        merged[f"enabled_{name}"] = f"enabled_{name}" in data
+    merged["image_enabled"] = "image_enabled" in data
+
+    enabled_before = posts.enabled_map(post)
+    changed = False
+    for key, attr in (
+        ("title", "title"),
+        ("source_title", "source_title"),
+        ("source_url", "source_url"),
+        ("source_publisher", "source_publisher"),
+    ):
+        if key in data and data[key] != (getattr(post, attr) or ""):
+            changed = True
+    current_date = (
+        post.source_published_at.date().isoformat() if post.source_published_at else ""
+    )
+    if "source_published_at" in data and data["source_published_at"] != current_date:
+        changed = True
+    has_toggles = any(key.startswith("enabled_") for key in data) or "image_enabled" in data
+    if has_toggles:
+        for name in posts.PLATFORMS:
+            enabled = f"enabled_{name}" in data
+            if enabled != enabled_before[name]:
+                changed = True
+            if enabled and data.get(name, "") != (post.platforms or {}).get(name, ""):
+                changed = True
+        if ("image_enabled" in data) != post.image_enabled:
+            changed = True
+        if "image_enabled" in data and data.get("image_prompt", "") != (post.image_prompt or ""):
+            changed = True
+
+    if changed:
+        return render(
+            request,
+            "drafts/edit.html",
+            post=post,
+            values=merged,
+            asset=media.primary_asset(db, post),
+            editable=posts.can_edit(post, user),
+            error="Сначала сохраните черновик, затем проверьте.",
+            check_ok=False,
+        )
+
     errors = posts.validate_post(post)
     if errors:
         return render(
             request,
             "drafts/edit.html",
             post=post,
-            values=_values(post),
+            values=merged,
             asset=media.primary_asset(db, post),
             editable=posts.can_edit(post, user),
             check_errors=errors,
+            check_ok=False,
         )
     return RedirectResponse(f"/drafts/{post_id}?ok=check", status_code=303)
 

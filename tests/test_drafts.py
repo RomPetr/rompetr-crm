@@ -444,3 +444,21 @@ def test_admin_publishes_after_check_without_manual_approval(client, monkeypatch
         f"/drafts/{post_id}/publish", data={"csrf_token": token}, follow_redirects=False
     )
     assert again.status_code == 400
+
+
+def test_check_with_unsaved_changes_keeps_fields(client):
+    login(client, "admin", "test-admin-password-12345")
+    token = csrf(client)
+    created = client.post(
+        "/drafts/new", data={"csrf_token": token, "title": "Несохранённые правки"}, follow_redirects=False
+    )
+    post_id = int(created.headers["location"].rstrip("/").split("/")[-1])
+    payload = form_payload(token, 1)
+    client.post(f"/drafts/{post_id}", data=payload, follow_redirects=False)
+
+    changed = dict(payload)
+    changed["telegram"] = "Черновик с несохранённой правкой. " + "Т" * 820 + "\n\nhttps://www.theblock.co/"
+    response = client.post(f"/drafts/{post_id}/check", data=changed, follow_redirects=False)
+    assert response.status_code == 200
+    assert "Сначала сохраните черновик" in response.text
+    assert "Черновик с несохранённой правкой" in response.text
