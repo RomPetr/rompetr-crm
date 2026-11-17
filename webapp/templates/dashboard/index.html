@@ -7,13 +7,13 @@
   {% if user.role == 'guest' %}<br>Гостевой доступ: черновики и картинки доступны, публикация — после одобрения администратором.{% endif %}
 </p>
 <div class="grid">
-  <article class="card"><h2>{{ post_count }}</h2><p>Ваших черновиков</p></article>
-  <article class="card"><h2>{{ ticket_count }}</h2><p>Открытых тикетов</p></article>
+  <article class="card"><a class="stat-link" href="/drafts"><h2>{{ post_count }}</h2></a><p>Ваших черновиков</p></article>
+  <article class="card"><a class="stat-link" href="/tickets"><h2>{{ ticket_count }}</h2></a><p>Открытых тикетов</p></article>
   <article class="card"><h2>{{ user.id }}</h2><p>Ваш ID</p></article>
 </div>
 <section class="card note">
   <h2>Что дальше</h2>
-  <p>Раздел черновиков появится на следующем этапе. Пока можно проверить вход, роли и тикеты.</p>
+  <p>Черновики и тикеты доступны по ссылкам выше. Гостевой аккаунт может готовить материалы, публикация — после одобрения администратором.</p>
   <p><a href="/tickets">Мои тикеты</a>{% if user.role == 'admin' %} · <a href="/admin">Админка</a>{% endif %}</p>
 </section>
 {% endblock %}
