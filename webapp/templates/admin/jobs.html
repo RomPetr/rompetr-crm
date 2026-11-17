@@ -14,7 +14,7 @@
       <td>{% if post %}<a href="/drafts/{{ post.id }}">{{ post.id }} · {{ post.title or post.base_slug }}</a>{% else %}—{% endif %}</td>
       <td>{{ job.status }}</td>
       <td>{{ job.attempts }}/{{ job.max_attempts }}</td>
-      <td class="muted">{{ (job.error or "")[:160] }}</td>
+      <td class="muted">{% if job.status in ["queued", "running"] %}—{% else %}{{ (job.error or "")[:160] }}{% endif %}</td>
       <td class="actions-cell">
         {% if job.status == "queued" %}
         <form method="post" action="/admin/jobs/{{ job.id }}/cancel">

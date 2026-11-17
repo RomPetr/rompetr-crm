@@ -103,9 +103,9 @@ def run_ai_check(db: Session, job: Job) -> dict:
     if result.timed_out:
         raise RuntimeError(f"Claude Code не уложился в таймаут. Лог: {result.log_path}")
     if result.exit_code != 0:
-        detail = (result.stderr or "").strip()
+        detail = str((result.parsed or {}).get("result") or "").strip()
         if not detail:
-            detail = str((result.parsed or {}).get("result") or "").strip()
+            detail = (result.stderr or "").strip()
         if not detail:
             detail = (result.stdout or "")[-500:]
         raise RuntimeError(f"Claude Code exit {result.exit_code}: {detail}. Лог: {result.log_path}")
@@ -190,7 +190,10 @@ def run_compose_news(db: Session, job: Job) -> dict:
     if result.timed_out:
         raise RuntimeError(f"Генерация новости не уложилась в таймаут. Лог: {result.log_path}")
     if result.exit_code != 0:
-        detail = (result.stderr or "").strip() or str((result.parsed or {}).get("result") or "")
+        detail = (
+            str((result.parsed or {}).get("result") or "").strip()
+            or (result.stderr or "").strip()
+        )
         raise RuntimeError(f"Claude Code exit {result.exit_code}: {detail}. Лог: {result.log_path}")
 
     try:
