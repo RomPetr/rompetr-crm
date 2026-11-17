@@ -229,6 +229,8 @@ def publish_now(post_id: int, request: Request, db: Session = Depends(get_db)):
     post = _get_post(db, post_id, user)
     if user.role == "guest":
         raise HTTPException(status_code=403, detail="Гостевой доступ не позволяет публиковать")
+    if post.status == "published":
+        raise HTTPException(status_code=400, detail="Пост уже опубликован")
     if post.status not in {"approved", "published"}:
         if user.role != "admin":
             raise HTTPException(status_code=400, detail="Публикация доступна только для одобренного поста")

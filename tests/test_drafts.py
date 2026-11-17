@@ -437,3 +437,10 @@ def test_admin_publishes_after_check_without_manual_approval(client, monkeypatch
         f"/drafts/{post_id}/publish", data={"csrf_token": token}, follow_redirects=False
     )
     assert published.status_code == 303
+
+    after = client.get(f"/drafts/{post_id}")
+    assert "Повторная публикация отключена" in after.text
+    again = client.post(
+        f"/drafts/{post_id}/publish", data={"csrf_token": token}, follow_redirects=False
+    )
+    assert again.status_code == 400

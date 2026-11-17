@@ -270,10 +270,15 @@
     <p class="ok">Проверка пройдена — можно публиковать.</p>
   {% endif %}
   <p class="muted">VK и Telegram уйдут сразу. X появится как ручная очередь с готовой ссылкой.</p>
+  {% if post.status == "published" %}
+    <p class="ok">Опубликовано. Повторная публикация отключена.</p>
+    <button class="button" type="button" disabled>Опубликовано</button>
+  {% else %}
   <form method="post" action="/drafts/{{ post.id }}/publish">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button class="button" type="submit">Опубликовать</button>
   </form>
+  {% endif %}
 </section>
 {% endif %}
 
