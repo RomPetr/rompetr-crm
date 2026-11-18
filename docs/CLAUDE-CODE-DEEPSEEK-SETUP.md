@@ -47,6 +47,66 @@ API отклоняет с ошибкой 400. Если нужна модель �
 
 ---
 
+## 2.1. Глобально для всех проектов
+
+У Claude Code **нет** глобального `.env`, который он автоматически читал бы из
+`C:\Users\rp`. `.env` — это соглашение приложений (так его читает наш CRM), а не
+Claude Code. Глобальные варианты такие:
+
+| Способ | Где хранится | Область действия | Claude Code читает сам |
+|---|---|---|---|
+| Переменные пользователя Windows | реестр `HKCU\Environment` | все процессы пользователя, любой каталог | да |
+| `settings.json` → ключ `"env"` | `C:\Users\rp\.claude\settings.json` | все проекты Claude Code | да |
+| `C:\Users\rp\.claude\deepseek.env` | обычный файл | только если загрузить вручную или скриптом | **нет** |
+| `.env` проекта | `C:\Users\rp\course\content\.env` | один проект; CLI его сам не читает | **нет** |
+
+**Наш скрипт использует первый способ.** Он читает `.env` проекта только как
+источник токена, а записывает переменные в профиль пользователя Windows. После
+запуска токен действует в `C:\Users\rp\project2`, `C:\Users\rp\project3` и любом
+другом каталоге — проект `course\content` больше не нужен.
+
+Для одного файла-источника на все проекты используется
+`C:\Users\rp\.claude\deepseek.env` со строкой:
+
+```dotenv
+ANTHROPIC_AUTH_TOKEN1=сюда_вставить_токен
+```
+
+Скрипт проверяет этот файл первым: если он существует, берёт токен из него,
+иначе — из `.env` проекта. Путь можно задать явно:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Users\rp\course\content\scripts\setup-deepseek-env.ps1 `
+  -EnvFile C:\Users\rp\.claude\deepseek.env
+```
+
+Сам CLI этот файл не читает — скрипт перекладывает значение в переменные
+пользователя. Файл `deepseek.env` можно использовать как резервную копию источника.
+
+Вариант через `settings.json` (только для Claude Code, не для других программ):
+
+```json
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "<вставить_токен>",
+    "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+    "ANTHROPIC_MODEL": "deepseek-flash",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-flash",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-flash",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-flash"
+  }
+}
+```
+
+Ключ `"env"` нужно добавить в существующий `settings.json`, не затирая
+`statusLine`, `theme` и `model`.
+
+Этот файл лежит вне репозиториев и в git не попадает, но токен в нём хранится
+в открытом виде. Переменные пользователя Windows надёжнее: их видят и CLI, и
+другие инструменты, независимо от текущего каталога.
+
+---
+
 ## 3. Быстрый путь: скрипт
 
 В PowerShell:
@@ -58,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup-deepseek-env.ps1
 
 Скрипт:
 
-- читает `.env`;
+- читает `C:\Users\rp\.claude\deepseek.env`, если он есть, иначе `.env` проекта;
 - берёт именно `ANTHROPIC_AUTH_TOKEN1`;
 - прописывает переменные в профиль пользователя и в текущий процесс;
 - удаляет `ANTHROPIC_API_KEY` и `CLAUDE_CODE_OAUTH_TOKEN`;

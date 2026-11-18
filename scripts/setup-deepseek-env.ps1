@@ -8,7 +8,8 @@
     variables that would take precedence. The token itself is never printed.
 
 .PARAMETER EnvFile
-    Path to .env. Defaults to the repository root next to this script.
+    Path to an env file. By default uses %USERPROFILE%\.claude\deepseek.env if it
+    exists, otherwise the repository .env next to this script.
 
 .PARAMETER SessionOnly
     Set variables only in the current PowerShell process, do not persist to the user profile.
@@ -24,12 +25,18 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$EnvFile = (Join-Path (Split-Path -Parent $PSScriptRoot) '.env'),
+    [string]$EnvFile = '',
     [switch]$SessionOnly,
     [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($EnvFile)) {
+    $globalEnv = Join-Path $HOME '.claude\deepseek.env'
+    $repoEnv = Join-Path (Split-Path -Parent $PSScriptRoot) '.env'
+    $EnvFile = if (Test-Path -LiteralPath $globalEnv) { $globalEnv } else { $repoEnv }
+}
 
 if (-not (Test-Path -LiteralPath $EnvFile)) {
     throw "Файл .env не найден: $EnvFile"
