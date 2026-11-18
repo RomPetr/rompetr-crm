@@ -115,6 +115,33 @@ alembic upgrade head
 
 ---
 
+## Деплой на Linux-сервер
+
+Репозиторий рассчитан на развёртывание по проектному скиллу
+[`.claude/skills/rompetr-crm/SKILL.md`](.claude/skills/rompetr-crm/SKILL.md). Скилл
+подхватывается Claude Code автоматически и содержит проверенную последовательность
+для Debian 12: пакеты, пользователи, venv, PostgreSQL, systemd, nginx, TLS, worker
+и типовые ловушки. Хронология реального деплоя — в `docs/DEPLOY-JOURNAL.md`.
+
+Коротко:
+
+1. Debian 12, Python 3.11+, PostgreSQL, nginx, systemd, git.
+2. Пользователи `cpapp` (web), `cpworker` (worker), группа `cpmedia`; код в
+   `/srv/rompetr/crm`, venv в `/srv/rompetr/venv`.
+3. Секреты — в `/etc/rompetr-crm/app.env` (640 `root:cpapp`), каталог 750 `root:cpapp`;
+   в git файл не попадает.
+4. `python -m alembic upgrade head` под пользователем приложения.
+5. systemd-юниты `rompetr-web` (uvicorn на `127.0.0.1:8000`) и `rompetr-worker`;
+   nginx как reverse proxy; UFW 22/80/443; TLS через certbot.
+6. Проверка: `/healthz`, `/login`, вход админом, AI-проверка черновика.
+
+Docker не требуется. Для AI-задач нужен Claude Code CLI, доступный сервисному
+пользователю, и переменные `ANTHROPIC_*`/`CLAUDE_*` в `app.env`. Если на сервере
+есть отдельный исходящий IP, задайте `CLAUDE_HTTP_PROXY` — прокси применится только
+к процессу Claude Code.
+
+---
+
 ## Структура репозитория
 
 ```text
