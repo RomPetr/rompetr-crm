@@ -1,6 +1,6 @@
 ---
 name: rompetr-crm
-description: Работа с репозиторием rompetr-crm: структура проекта, запуск FastAPI и worker, миграции PostgreSQL, правки моделей/сервисов/шаблонов, тесты и ruff, обновление README и подготовка к публикации в GitHub. Используй при любой задаче в C:\Users\rp\course\content.
+description: Работа с репозиторием rompetr-crm: структура проекта, запуск FastAPI и worker, миграции PostgreSQL, правки моделей/сервисов/шаблонов, тесты и ruff, обновление README, публикация в GitHub и проверенный деплой на Debian 12. Используй при любой задаче в C:\Users\rp\course\content.
 ---
 
 # rompetr-crm — как работать с проектом
