@@ -9,7 +9,7 @@ CRM-система для подготовки и публикации ново�
 Pixly, команда `/publish`. Теперь тот же пайплайн доступен через браузер и базу данных,
 с пользователями, ролями, очередью задач и историей публикаций.
 
-<img width="1920" height="1080" alt="site" src="https://github.com/user-attachments/assets/be28dcd6-82eb-48e1-90c1-8ea60873c826" />
+<img width="1920" height="1080" alt="rompetr.autos" src="https://github.com/user-attachments/assets/be28dcd6-82eb-48e1-90c1-8ea60873c826" />
 
 ---
 
