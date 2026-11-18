@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
 from PIL import Image, UnidentifiedImageError
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from webapp.config import get_settings
@@ -53,6 +53,7 @@ def save_bytes(db: Session, post: Post, raw: bytes, user_id: int | None) -> Asse
         select(Asset).where(Asset.post_id == post.id, Asset.sha256 == sha)
     ).scalar_one_or_none()
     if existing is not None:
+        _make_primary(db, post, existing)
         return existing
 
     out_dir = _media_root() / "posts" / post.public_id
@@ -62,7 +63,12 @@ def save_bytes(db: Session, post: Post, raw: bytes, user_id: int | None) -> Asse
     if not path.exists():
         path.write_bytes(encoded)
 
-    has_any = db.execute(select(Asset.id).where(Asset.post_id == post.id)).first()
+    db.execute(
+        update(Asset)
+        .where(Asset.post_id == post.id)
+        .values(is_primary=False)
+        .execution_options(synchronize_session=False)
+    )
     asset = Asset(
         post_id=post.id,
         kind="image",
@@ -72,12 +78,25 @@ def save_bytes(db: Session, post: Post, raw: bytes, user_id: int | None) -> Asse
         width=image.width,
         height=image.height,
         sha256=sha,
-        is_primary=has_any is None,
+        is_primary=True,
         created_by=user_id,
     )
     db.add(asset)
     db.flush()
     return asset
+
+
+def _make_primary(db: Session, post: Post, asset: Asset) -> None:
+    if asset.is_primary:
+        return
+    db.execute(
+        update(Asset)
+        .where(Asset.post_id == post.id, Asset.id != asset.id)
+        .values(is_primary=False)
+        .execution_options(synchronize_session=False)
+    )
+    asset.is_primary = True
+    db.flush()
 
 
 def asset_path(asset: Asset) -> Path:

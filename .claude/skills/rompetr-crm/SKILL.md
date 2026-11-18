@@ -282,6 +282,7 @@ journalctl -u rompetr-worker -n 50 --no-pager
 | `unrecognized_model` | это предупреждение stderr; смотреть JSON-результат CLI |
 | «Сгенерировать новость»: `budget_exhausted`, черновик пуст | JSON мог быть записан в `var/jobs/<public_id>/post.json`; поднять `CLAUDE_COMPOSE_BUDGET_USD`, запретить субагентов, `compose_news` имеет `max_attempts=1` |
 | Telegram длиннее 1024 после AI-перевода | Checker обязан пересчитывать длину после перевода; `run_ai_check` теперь отклоняет JSON с выходом за лимит и не применяет его |
+| Новая картинка сгенерировалась, но в черновике старая | Проверить `assets.is_primary`; новая картинка должна становиться primary, старые — `false` |
 | `claude-haiku-5-5` / `claude-opus-5-5` | задать доступный `CLAUDE_MODEL`, fallback только вместе с моделью |
 | Telegram без картинки | есть ли primary asset; `image_enabled` на публикацию не влияет |
 | VK `error 27` | групповой токен не умеет `photos.*`; публикуется только текст |
