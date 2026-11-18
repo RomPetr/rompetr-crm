@@ -310,10 +310,34 @@ EMAIL_MODE=dev            # до настройки SMTP; письма в var/ma
 - `.env` скопировался с CRLF, pydantic не парсил булевы значения. Исправлено `sed -i 's/$//'`.
 - После замены `sites-enabled/default` nginx не перезагрузился: нужен `systemctl reload nginx`, одного `enable --now` недостаточно.
 
+### 2026-11-18 — AI-переменные и Claude CLI для worker
+
+- Из локального `.env` на VPS перенесены `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`,
+  `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL`,
+  `ANTHROPIC_DEFAULT_HAIKU_MODEL`; значения не печатались и в git не попадали.
+- Claude Code CLI 2.1.325 скопирован из установки `rp` в `/usr/local/bin/claude`
+  (349 МБ), чтобы его мог запускать `cpworker`.
+- Создан `CLAUDE_CONFIG_DIR=/var/lib/rompetr/claude` (cpworker:cpworker, 700);
+  `HOME=/var/lib/rompetr`; `CLAUDE_BIN=/usr/local/bin/claude`.
+- `CLAUDE_CODE_OAUTH_TOKEN` и `CLAUDE_FALLBACK_MODEL` оставлены пустыми —
+  worker авторизуется через `ANTHROPIC_AUTH_TOKEN` и Anthropic-совместимый endpoint.
+- **Важно:** DeepSeek API отклоняет локальный алиас `deepseek-v4.1-flash:cloud`
+  с ошибкой 400 «supported API model names are deepseek-flash, deepseek-v4-pro».
+  На VPS выставлены `CLAUDE_MODEL=deepseek-flash` и такие же значения в
+  `ANTHROPIC_DEFAULT_*`.
+- Проверка `claude_runner.run("Reply with exactly OK")` от `cpworker`: exit 0,
+  `result: OK`; предупреждение `[claude-code:unrecognized_model]` в stderr безвредно.
+- `rompetr-web` и `rompetr-worker` перезапущены, оба active; worker получил
+  `HOME`, `CLAUDE_BIN`, `CLAUDE_CONFIG_DIR`, `CLAUDE_MODEL`, `ANTHROPIC_BASE_URL`
+  и токен.
+- Обновление CLI: `install -m 0755 <новый бинарник> /usr/local/bin/claude`
+  (обновление под `rp` не заменит системную копию).
+
 Осталось:
 
 - [ ] Переключить `rompetr.ru` с 185.154.20.52 на 62.171.228.41 и выпустить TLS.
-- [ ] `CLAUDE_CODE_OAUTH_TOKEN` для AI-задач; без него `ai_check` и `compose_news` падают.
+- [x] AI-задачи: worker использует `ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`.
+- [ ] Проверить полный цикл `ai_check` и `compose_news` из интерфейса CRM на VPS.
 - [ ] SMTP и offsite-бэкапы.
 - [ ] Проверить публикацию в тестовые VK/Telegram с VPS.
 
@@ -328,7 +352,7 @@ EMAIL_MODE=dev            # до настройки SMTP; письма в var/ma
 | Q3 | VPS: IP, ресурсы, SSH | 2 vCPU / 4 ГБ / 40 ГБ |
 | Q4 | Правит ли гость черновик после отправки | Нет |
 | Q5 | Кто публикует | user — свой approved, guest — никогда |
-| Q6 | Модель Claude для worker | `sonnet` + fallback `haiku` |
+| Q6 | Модель Claude для worker | `deepseek-flash` через Anthropic-совместимый endpoint |
 | Q7 | Импорт старых JSON | Оставить на диске |
 | Q8 | Offsite-бэкапы | Backblaze B2 через restic |
 
