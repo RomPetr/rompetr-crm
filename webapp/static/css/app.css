@@ -231,7 +231,12 @@ select {
   flex-wrap: wrap;
 }
 .field-title { color: var(--muted); font-size: 14px; }
-.field-head .toggle { margin: 0; }
+.field-head .toggle {
+  margin: 0 0 0 auto;
+  flex: 0 0 200px;
+  width: 200px;
+  white-space: nowrap;
+}
 .disabled-field {
   background: #1a1a1a !important;
   color: #6b6b6b !important;
@@ -252,8 +257,9 @@ select {
   border-color: rgba(110, 231, 168, 0.65) !important;
   box-shadow: 0 0 0 1px rgba(110, 231, 168, 0.25);
 }
-.field-head .toggle { margin-left: auto; }
-.field-head { align-items: center; }
+@media (max-width: 640px) {
+  .field-head .toggle { flex-basis: auto; width: auto; margin-left: 0; white-space: normal; }
+}
 
 .done-banner {
   background: #16a34a;
