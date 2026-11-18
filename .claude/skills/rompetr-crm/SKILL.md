@@ -135,7 +135,7 @@ Remote: `https://github.com/RomPetr/rompetr-crm` (публичный, ветка
 
 | Параметр | Значение |
 |---|---|
-| Адрес | `http://62.171.228.41` — IP-этап, без домена и TLS |
+| Адрес | `http://rompetr.autos` — домен работает, TLS ожидает сертификат провайдера |
 | ОС | Debian 12, Python 3.11 |
 | База | PostgreSQL 15 |
 | Код / venv | `/srv/rompetr/crm` / `/srv/rompetr/venv` |
@@ -181,10 +181,10 @@ sed -i 's/\r$//' /etc/rompetr-crm/app.env   # CRLF ломает булевы з�
 Заполнить `DATABASE_URL`, `APP_SECRET_KEY`, `ADM_PASSW`, ключи VK/Telegram/ProxyAPI,
 `WORKER_INPROCESS=false`, `WORKER_ID`, `CLAUDE_*`. Значения не печатать и не коммитить.
 
-- **Текущий IP-этап:** `APP_ENV=dev`, `APP_BASE_URL=http://62.171.228.41`,
+- **Текущий этап:** `APP_ENV=dev`, `APP_BASE_URL=http://rompetr.autos`,
   `COOKIE_SECURE=false`.
-- **После переключения домена:** `APP_ENV=prod`, `APP_BASE_URL=https://rompetr.ru`,
-  `COOKIE_SECURE=true`, затем TLS через certbot.
+- **После установки сертификата:** `APP_ENV=prod`, `APP_BASE_URL=https://rompetr.autos`,
+  `COOKIE_SECURE=true`.
 
 Проверить, что файл без CRLF (`sed -i 's/\r$//'`), иначе pydantic не разберёт
 булевы значения.
@@ -259,16 +259,22 @@ systemctl enable --now rompetr-web rompetr-worker
 
 ### 8.4. nginx, TLS, firewall
 
-Конфиг ниже — для этапа с доменом. На текущем стенде работает `listen 80` и
-`server_name _` (или IP), TLS ещё не выпущен; сертификат добавляется только после
-переключения DNS на `62.171.228.41`.
+На текущем стенде DNS `rompetr.autos` и `www.rompetr.autos` указывает на
+`62.171.228.41`, nginx слушает HTTP и отдаёт DCV-файл. TLS ещё не включён:
+ожидаются файлы сертификата от провайдера. Для проверки домена используется
+`/.well-known/pki-validation/` из `/srv/rompetr/dcv/`.
 
 ```nginx
 server {
     listen 80;
-    server_name rompetr.ru www.rompetr.ru;
+    server_name 62.171.228.41 rompetr.autos www.rompetr.autos;
     client_max_body_size 12m;
 
+    location ^~ /.well-known/pki-validation/ {
+        root /srv/rompetr/dcv;
+        default_type text/plain;
+        add_header Cache-Control "no-store";
+    }
     location /static/ {
         alias /srv/rompetr/crm/webapp/static/;
     }
@@ -286,8 +292,16 @@ ln -s /etc/nginx/sites-available/rompetr /etc/nginx/sites-enabled/rompetr
 rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx   # одного enable --now недостаточно
 ufw allow 22,80,443/tcp && ufw enable
-certbot --nginx -d rompetr.ru -d www.rompetr.ru
 ```
+
+Для DCV провайдера файл кладётся в
+`/srv/rompetr/dcv/.well-known/pki-validation/<token>.txt`, проверяется через
+`http://rompetr.autos/.well-known/pki-validation/<token>.txt`.
+
+Для Let's Encrypt можно использовать `certbot --nginx -d rompetr.autos -d
+www.rompetr.autos`. Если сертификат выдан провайдером по CSR, вместо certbot
+нужно положить файлы в `/etc/nginx/ssl/` и добавить `listen 443 ssl` с путями
+`ssl_certificate` / `ssl_certificate_key`.
 
 ### 8.5. Claude Code для worker
 

@@ -8,6 +8,10 @@
 
 ## 1. Чек-лист деплоя на VPS (держать в актуальном состоянии)
 
+> **Историческая часть.** Это первоначальный план. Фактические отличия: PostgreSQL 15,
+> домен `rompetr.autos`, AI через DeepSeek (без OAuth), TLS ожидает сертификат
+> провайдера. Актуальное состояние — в записях ниже и в README.
+
 ### 1.1. Перед первым push в публичный GitHub
 
 - [ ] Выполнить `python -I scripts/git_guard.py --tracked` → код 0.
@@ -462,9 +466,24 @@ $//'`.
   «Модерация: отклонено» остаётся только для отклонённых/неодобренных.
 - Добавлен тест на подпись published-поста; всего 47 тестов, `ruff` чистый.
 
+### 2026-11-18 — домен rompetr.autos и DCV
+
+- DNS `rompetr.autos` и `www.rompetr.autos` указывает на `62.171.228.41`.
+- nginx: `server_name 62.171.228.41 rompetr.autos www.rompetr.autos`; домен и
+  `www` отдают `/healthz` и `/login` — 200.
+- DCV-файл провайдера опубликован в
+  `/srv/rompetr/dcv/.well-known/pki-validation/` и доступен по HTTP на apex и www
+  с точным содержимым (99 байт). CSR проверен, CN `rompetr.autos`; копия лежит в
+  `/etc/nginx/ssl/rompetr.autos.csr`.
+- `APP_BASE_URL` переключён на `http://rompetr.autos`; web перезапущен.
+- HTTPS ещё не включён: нужны выданные провайдером файлы сертификата и приватного
+  ключа. После их получения: `APP_ENV=prod`, `APP_BASE_URL=https://rompetr.autos`,
+  `COOKIE_SECURE=true`, `listen 443 ssl` + редирект с 80.
+
 Осталось:
 
-- [ ] Переключить `rompetr.ru` с 185.154.20.52 на 62.171.228.41 и выпустить TLS.
+- [x] Домен `rompetr.autos` направлен на `62.171.228.41`; HTTP и DCV-файл работают.
+- [ ] Установить HTTPS-сертификат, переключить `APP_ENV=prod` и `COOKIE_SECURE=true`.
 - [x] AI-задачи: worker использует `ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`.
 - [ ] Проверить полный цикл `ai_check` и `compose_news` из интерфейса CRM на VPS.
 - [ ] SMTP и offsite-бэкапы.
@@ -480,7 +499,7 @@ $//'`.
 | Q2 | DNS и способ сертификата | DNS-01, TTL 300 |
 | Q3 | VPS: IP, ресурсы, SSH | 2 vCPU / 4 ГБ / 40 ГБ |
 | Q4 | Правит ли гость черновик после отправки | Нет |
-| Q5 | Кто публикует | user — свой approved, guest — никогда |
+| Q5 | Кто публикует | user — свой approved; guest — 1 публикация после одобрения |
 | Q6 | Модель Claude для worker | `deepseek-flash` через Anthropic-совместимый endpoint |
 | Q7 | Импорт старых JSON | Оставить на диске |
 | Q8 | Offsite-бэкапы | Backblaze B2 через restic |
@@ -489,8 +508,9 @@ $//'`.
 
 ## 4. Что ещё не сделано
 
-- HTMX-фрагменты: формы работают обычными POST с перезагрузкой.
 - Роль `moderator` — только в планах.
 - Планировщик `scheduled_at` есть в CLI, но нет поля в UI черновика.
-- Telegram-письма SMTP, публичный GitHub remote и push.
-- Деплой на VPS и переключение worker’а на systemd.
+- SMTP для реальных писем; сейчас dev-режим.
+- HTTPS-сертификат: домен и DCV настроены, ждём файлы от провайдера.
+- Offsite-бэкапы и мониторинг.
+- Автоматическая публикация X через API не используется — только ручная очередь.
