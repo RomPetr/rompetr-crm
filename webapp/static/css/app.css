@@ -71,6 +71,14 @@ h1 { font-size: clamp(30px, 4vw, 46px); line-height: 1.15; margin: 0 0 16px; }
 h2 { font-size: 20px; margin: 0 0 8px; }
 .lead { color: var(--muted); font-size: 18px; max-width: 760px; }
 .actions { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+.actions-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.actions-row form { margin: 0; }
+.usage-badge { white-space: nowrap; }
+.usage-badge.exhausted {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(248, 113, 113, 0.08);
+}
 
 .button {
   display: inline-block;

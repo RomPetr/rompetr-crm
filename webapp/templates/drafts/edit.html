@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% set ai = ai_changes if ai_changes is defined and ai_changes else {} %}
+{% set usage = usage if usage is defined and usage else {"compose_used": 0, "image_used": 0, "compose_limit": 0, "image_limit": 0, "publications": 0} %}
 {% block title %}{{ post.title or "Черновик" }}
 {% endblock %}
 {% block content %}
@@ -168,18 +169,21 @@
     <button class="button secondary" type="submit">На проверку</button>
   </form>
   {% endif %}
-  {% if user and user.role == "admin" %}
+  {% if user and user.role in ["admin", "guest"] %}
   <form method="post" action="/drafts/{{ post.id }}/generate-news" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <h2>Сгенерировать новость</h2>
-    <p class="muted">Полный цикл: поиск новости, JSON, проверка, поля площадок и картинка. Может занять до нескольких минут.</p>
+    <p class="muted">Полный цикл: поиск новости, JSON, проверка, поля площадок и картинка. Может занять до нескольких минут.{% if user.role == "guest" %} Гостю доступен {{ usage.compose_limit }} поиск информации.{% endif %}</p>
     <label>Модель изображения
       <select name="model">
         <option value="black-forest-labs/flux.2-pro">Flux.2 Pro</option>
         <option value="gpt-image-1-mini">GPT Image 1 mini</option>
       </select>
     </label>
-    <button class="button" type="submit">Запустить</button>
+    <div class="actions-row">
+      <button class="button" type="submit" {% if user.role == "guest" and usage.compose_used >= usage.compose_limit %}disabled{% endif %}>Запустить</button>
+      <span class="badge usage-badge{% if user.role == "guest" and usage.compose_used >= usage.compose_limit %} exhausted{% endif %}">Поиск: {{ usage.compose_used }}{% if user.role == "guest" %}/{{ usage.compose_limit }}{% endif %}</span>
+    </div>
   </form>
   {% endif %}
   <form method="post" action="/drafts/{{ post.id }}/ai-check" class="card">
@@ -198,7 +202,10 @@
         <option value="gpt-image-1-mini">GPT Image 1 mini</option>
       </select>
     </label>
-    <button class="button secondary" type="submit">Запустить</button>
+    <div class="actions-row">
+      <button class="button secondary" type="submit" {% if user.role == "guest" and usage.image_used >= usage.image_limit %}disabled{% endif %}>Запустить</button>
+      <span class="badge usage-badge{% if user.role == "guest" and usage.image_used >= usage.image_limit %} exhausted{% endif %}">Картинки: {{ usage.image_used }}{% if user.role == "guest" %}/{{ usage.image_limit }}{% endif %}</span>
+    </div>
   </form>
   <form method="post" action="/drafts/{{ post.id }}/assets" enctype="multipart/form-data" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -262,21 +269,34 @@
 </section>
 {% endif %}
 
-{% if user and user.role != "guest" and (post.status in ["approved", "published"] or (user.role == "admin" and check_ok)) %}
+{% if user and (user.role == "guest" or post.status in ["approved", "published"] or (user.role == "admin" and check_ok)) %}
 <section class="card note">
   <h2>Публикация</h2>
-  {% if post.status not in ["approved", "published"] and check_ok %}
-    <p class="ok">Проверка пройдена — можно публиковать.</p>
-  {% endif %}
-  <p class="muted">VK и Telegram уйдут сразу. X появится как ручная очередь с готовой ссылкой.</p>
-  {% if post.status == "published" %}
-    <p class="ok">Опубликовано. Повторная публикация отключена.</p>
-    <button class="button" type="button" disabled>Опубликовано</button>
+  {% if user.role == "guest" %}
+    <p class="muted">Гостевой доступ: публикация только после одобрения администратором.</p>
+    <div class="actions-row">
+      <button class="button" type="button" disabled>Опубликовать</button>
+      <span class="badge usage-badge">Публикаций: {{ usage.publications }}</span>
+    </div>
   {% else %}
-  <form method="post" action="/drafts/{{ post.id }}/publish">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button class="button" type="submit">Опубликовать</button>
-  </form>
+    {% if post.status not in ["approved", "published"] and check_ok %}
+      <p class="ok">Проверка пройдена — можно публиковать.</p>
+    {% endif %}
+    <p class="muted">VK и Telegram уйдут сразу. X появится как ручная очередь с готовой ссылкой.</p>
+    <div class="actions-row">
+      {% if post.status == "published" %}
+        <button class="button" type="button" disabled>Опубликовано</button>
+      {% else %}
+      <form method="post" action="/drafts/{{ post.id }}/publish">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="button" type="submit">Опубликовать</button>
+      </form>
+      {% endif %}
+      <span class="badge usage-badge">Публикаций: {{ usage.publications }}</span>
+    </div>
+    {% if post.status == "published" %}
+      <p class="ok">Опубликовано. Повторная публикация отключена.</p>
+    {% endif %}
   {% endif %}
 </section>
 {% endif %}

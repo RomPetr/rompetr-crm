@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     worker_id: str = "local-1"
     worker_inprocess: bool = False
 
+    guest_compose_limit: int = 1
+    guest_image_limit: int = 2
+
     feature_ai_check: bool = True
     feature_compose: bool = False
 

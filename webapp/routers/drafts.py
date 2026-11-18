@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from webapp.config import get_settings
 from webapp.db import get_db
 from webapp.deps import csrf_protect, require_user
 from webapp.models.content import Asset, Post, Publication
@@ -12,6 +13,7 @@ from webapp.models.system import Job
 from webapp.models.user import User
 from webapp.services import audit, jobs, media, posts
 from webapp.services import publish as publish_service
+from webapp.services import usage as usage_service
 from webapp.templating import render
 
 router = APIRouter(
@@ -39,6 +41,27 @@ def _values(post: Post) -> dict:
         "image_enabled": post.image_enabled,
         **(post.platforms or {}),
         **{f"enabled_{name}": value for name, value in posts.enabled_map(post).items()},
+    }
+
+
+def _usage(db: Session, user: User, post: Post) -> dict:
+    settings = get_settings()
+    if user.role == "guest":
+        compose_used = usage_service.user_job_count(db, user.id, "compose_news")
+        image_used = usage_service.user_job_count(db, user.id, "generate_image")
+        compose_limit = settings.guest_compose_limit
+        image_limit = settings.guest_image_limit
+    else:
+        compose_used = usage_service.post_job_count(db, post.id, "compose_news")
+        image_used = usage_service.post_job_count(db, post.id, "generate_image")
+        compose_limit = 0
+        image_limit = 0
+    return {
+        "compose_used": compose_used,
+        "image_used": image_used,
+        "compose_limit": compose_limit,
+        "image_limit": image_limit,
+        "publications": usage_service.post_publication_count(db, post.id),
     }
 
 
@@ -117,6 +140,7 @@ def edit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
         active_job=active_job,
         completed_job=completed_job,
         ai_changes=ai_changes,
+        usage=_usage(db, user, post),
         editable=posts.can_edit(post, user),
         message=request.query_params.get("ok"),
         error=request.query_params.get("error"),
@@ -200,6 +224,7 @@ async def check_draft(post_id: int, request: Request, db: Session = Depends(get_
             post=post,
             values=merged,
             asset=media.primary_asset(db, post),
+            usage=_usage(db, user, post),
             editable=posts.can_edit(post, user),
             error="Сначала сохраните черновик, затем проверьте.",
             check_ok=False,
@@ -213,6 +238,7 @@ async def check_draft(post_id: int, request: Request, db: Session = Depends(get_
             post=post,
             values=merged,
             asset=media.primary_asset(db, post),
+            usage=_usage(db, user, post),
             editable=posts.can_edit(post, user),
             check_errors=errors,
             check_ok=False,
@@ -234,6 +260,7 @@ def submit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
             post=post,
             values=_values(post),
             asset=media.primary_asset(db, post),
+            usage=_usage(db, user, post),
             editable=True,
             check_errors=errors,
         )
@@ -361,6 +388,14 @@ def enqueue_generate_image(
         raise HTTPException(status_code=403)
     if not post.image_enabled:
         raise HTTPException(status_code=400, detail="Сначала включите image_prompt")
+    if user.role == "guest":
+        settings = get_settings()
+        used = usage_service.user_job_count(db, user.id, "generate_image")
+        if used >= settings.guest_image_limit:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Гостевой лимит генерации изображений исчерпан ({settings.guest_image_limit}).",
+            )
     selected = model if model in IMAGE_MODELS else IMAGE_MODELS[0]
     job = jobs.enqueue(
         db, "generate_image", post, created_by=user.id, payload={"model": selected}
@@ -410,8 +445,18 @@ def enqueue_compose_news(
 
     user: User = request.state.user
     post = _get_post(db, post_id, user)
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Генерация новости доступна только админу")
+    if user.role not in {"admin", "guest"}:
+        raise HTTPException(status_code=403, detail="Генерация новости доступна админу или гостю")
+    if not posts.can_edit(post, user):
+        raise HTTPException(status_code=403)
+    if user.role == "guest":
+        settings = get_settings()
+        used = usage_service.user_job_count(db, user.id, "compose_news")
+        if used >= settings.guest_compose_limit:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Гостевой лимит поиска информации исчерпан ({settings.guest_compose_limit}).",
+            )
     selected = model if model in IMAGE_MODELS else IMAGE_MODELS[0]
     job = jobs.enqueue(
         db, "compose_news", post, created_by=user.id, payload={"model": selected}
