@@ -268,6 +268,52 @@ def submit_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
     return RedirectResponse(f"/drafts/{post_id}?ok=submitted", status_code=303)
 
 
+@router.post("/drafts/{post_id}/approve")
+def approve_draft(post_id: int, request: Request, db: Session = Depends(get_db)):
+    user: User = request.state.user
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Модерация доступна только администратору")
+    post = _get_post(db, post_id, user)
+    if post.status == "published":
+        raise HTTPException(status_code=400, detail="Опубликованный пост нельзя модерировать")
+    posts.approve(db, post, user)
+    audit.log_action(
+        db, "admin.post_approved", actor_id=user.id, entity_type="post", entity_id=str(post.id)
+    )
+    db.commit()
+    return RedirectResponse(f"/drafts/{post_id}?ok=approved", status_code=303)
+
+
+@router.post("/drafts/{post_id}/reject")
+def reject_draft(
+    post_id: int,
+    request: Request,
+    reason: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    user: User = request.state.user
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Модерация доступна только администратору")
+    post = _get_post(db, post_id, user)
+    if post.status == "published":
+        raise HTTPException(status_code=400, detail="Опубликованный пост нельзя модерировать")
+    if not reason.strip():
+        return RedirectResponse(
+            f"/drafts/{post_id}?error=Укажите+причину+отклонения", status_code=303
+        )
+    posts.reject(db, post, user, reason)
+    audit.log_action(
+        db,
+        "admin.post_rejected",
+        actor_id=user.id,
+        entity_type="post",
+        entity_id=str(post.id),
+        meta={"reason": reason[:500]},
+    )
+    db.commit()
+    return RedirectResponse(f"/drafts/{post_id}?ok=rejected", status_code=303)
+
+
 @router.post("/drafts/{post_id}/assets")
 async def upload_asset(post_id: int, request: Request, db: Session = Depends(get_db)):
     user: User = request.state.user

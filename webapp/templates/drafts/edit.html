@@ -17,6 +17,8 @@
 {% if message == "image" %}<p class="ok">Изображение загружено.</p>{% endif %}
 {% if message == "image_deleted" %}<p class="ok">Изображение удалено.</p>{% endif %}
 {% if message == "published" %}<p class="ok">Публикация выполнена.</p>{% endif %}
+{% if message == "approved" %}<p class="ok">Пост одобрен.</p>{% endif %}
+{% if message == "rejected" %}<p class="ok">Пост отклонён.</p>{% endif %}
 {% if completed_job and completed_job.type != "compose_news" %}
   {% if completed_job.status == "succeeded" %}
     {% if completed_job.type == "ai_check" %}
@@ -153,6 +155,34 @@
     </div>
   {% endif %}
 </form>
+
+{% if user and user.role == "admin" %}
+<section class="card note">
+  <h2>Модерация</h2>
+  {% if post.status == "pending_review" %}
+    <p class="muted">Одобрить пост или отклонить с указанием причины.</p>
+    <div class="actions-row">
+      <form method="post" action="/drafts/{{ post.id }}/approve">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="button" type="submit">Одобрить</button>
+      </form>
+      <form method="post" action="/drafts/{{ post.id }}/reject" class="actions-row">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input class="reason-input" name="reason" placeholder="Причина отклонения" required>
+        <button class="button secondary" type="submit">Отклонить</button>
+      </form>
+    </div>
+  {% elif post.status == "approved" %}
+    <p class="ok">Пост одобрен. Можно публиковать.</p>
+  {% elif post.status == "rejected" %}
+    <p class="muted">Пост отклонён{% if post.rejection_reason %}: {{ post.rejection_reason }}{% endif %}.</p>
+  {% elif post.status == "published" %}
+    <p class="muted">Пост опубликован.</p>
+  {% else %}
+    <p class="muted">Черновик ещё не отправлен на проверку.</p>
+  {% endif %}
+</section>
+{% endif %}
 
 {% if editable %}
 <div class="grid">

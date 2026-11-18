@@ -73,6 +73,18 @@ h2 { font-size: 20px; margin: 0 0 8px; }
 .actions { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
 .actions-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
 .actions-row form { margin: 0; }
+.reason-input {
+  flex: 1 1 240px;
+  max-width: 420px;
+  min-width: 220px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.reason-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .usage-badge { white-space: nowrap; }
 .usage-badge.exhausted {
   color: #fecaca;
