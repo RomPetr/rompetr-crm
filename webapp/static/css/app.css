@@ -258,7 +258,12 @@ select {
   box-shadow: 0 0 0 1px rgba(110, 231, 168, 0.25);
 }
 @media (max-width: 640px) {
-  .field-head .toggle { flex-basis: auto; width: auto; margin-left: 0; white-space: normal; }
+  .field-head .toggle {
+    flex: 0 0 100%;
+    width: 100%;
+    margin-left: 0;
+    white-space: normal;
+  }
 }
 
 .done-banner {
