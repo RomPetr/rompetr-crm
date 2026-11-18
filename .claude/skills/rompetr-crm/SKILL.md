@@ -280,6 +280,7 @@ journalctl -u rompetr-worker -n 50 --no-pager
 | Worker не берёт задачи | `WORKER_INPROCESS`, `/admin/jobs`, `var/logs/uvicorn-8000.log` |
 | `Claude Code exit 1` | `var/jobs/<job>.err.log`; чаще всего авторизация или недоступная модель |
 | `unrecognized_model` | это предупреждение stderr; смотреть JSON-результат CLI |
+| «Сгенерировать новость»: `budget_exhausted`, черновик пуст | JSON мог быть записан в `var/jobs/<public_id>/post.json`; поднять `CLAUDE_COMPOSE_BUDGET_USD`, запретить субагентов, `compose_news` имеет `max_attempts=1` |
 | `claude-haiku-5-5` / `claude-opus-5-5` | задать доступный `CLAUDE_MODEL`, fallback только вместе с моделью |
 | Telegram без картинки | есть ли primary asset; `image_enabled` на публикацию не влияет |
 | VK `error 27` | групповой токен не умеет `photos.*`; публикуется только текст |
