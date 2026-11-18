@@ -256,7 +256,7 @@ def test_admin_sees_author_and_moderates_from_drafts(client):
     assert approved.status_code == 303
 
     page = client.get(f"/drafts/{post_id}")
-    assert "Модерация:" in page.text
+    assert "Модерация пройдена" in page.text
     assert "admin" in page.text
 
 

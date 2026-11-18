@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from webapp.db import SessionLocal
 from webapp.models.content import Post
 from webapp.models.user import User
@@ -61,6 +63,26 @@ def test_admin_can_approve_from_draft_page(client):
         assert post.approved_by == 0
     finally:
         db.close()
+
+
+def test_published_post_shows_moderation_passed(client):
+    db = SessionLocal()
+    try:
+        post = make_pending(db, "Published moderation label")
+        post.status = "published"
+        post.approved_by = 0
+        post.approved_at = datetime.now(timezone.utc)
+        post.rejection_reason = None
+        db.commit()
+        post_id = post.id
+    finally:
+        db.close()
+
+    login_admin(client)
+    page = client.get(f"/drafts/{post_id}")
+    assert page.status_code == 200
+    assert "Модерация пройдена" in page.text
+    assert "Модерация: отклонено" not in page.text
 
 
 def test_admin_can_reject_from_draft_page_with_reason(client):

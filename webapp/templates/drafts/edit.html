@@ -56,7 +56,11 @@
 {% endif %}
 {% if post.approved_at and moderator %}
   <p class="muted">
-    Модерация: {{ "одобрено" if post.status == "approved" else "отклонено" }}
+    {% if post.status in ["approved", "published"] %}
+      Модерация пройдена
+    {% else %}
+      Модерация: отклонено
+    {% endif %}
     · {{ moderator.login }} (ID {{ moderator.id }})
     · {{ post.approved_at.strftime("%Y-%m-%d %H:%M") }}
   </p>
