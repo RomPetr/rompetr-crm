@@ -194,6 +194,7 @@ posts/             данные постов (в git не попадают)
 - `docs/DEPLOY-JOURNAL.md` — хронология решений и чек-лист деплоя на VPS.
 - `.claude/plans/crm-web-platform.yaml` — машинная спецификация.
 - `.claude/skills/rompetr-crm/SKILL.md` — скилл для Claude Code: структура, запуск, правки, проверки и публикация.
+- `docs/CLAUDE-CODE-DEEPSEEK-SETUP.md` — переход Claude Code на API DeepSeek на Windows 10.
 - `PIPELINE.md`, `PUBLISH-COMMAND.md` — старый конвейер Content Plant.
 
 ---
