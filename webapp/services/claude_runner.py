@@ -115,6 +115,11 @@ def run(
                 env["ANTHROPIC_BASE_URL"] = settings.anthropic_base_url
     if settings.claude_config_dir:
         env["CLAUDE_CONFIG_DIR"] = settings.claude_config_dir
+    proxy = settings.claude_http_proxy.strip()
+    if proxy:
+        for key in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+            env[key] = proxy
+        env["NO_PROXY"] = env["no_proxy"] = "127.0.0.1,localhost,::1"
     env["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"] = "0"
     env.pop("ANTHROPIC_API_KEY", None)
 

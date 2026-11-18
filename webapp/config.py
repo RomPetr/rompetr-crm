@@ -75,6 +75,7 @@ class Settings(BaseSettings):
     anthropic_auth_token: SecretStr = SecretStr("")
     anthropic_base_url: str = ""
     claude_config_dir: str = ""
+    claude_http_proxy: str = ""
     claude_model: str = "sonnet"
     claude_fallback_model: str = ""
     claude_timeout_sec: int = 900
