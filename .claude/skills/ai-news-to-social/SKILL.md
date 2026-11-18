@@ -201,6 +201,11 @@ JSON создаёт основной агент CP, одну PNG генерир�
 
 **Длина:** до 280 символов включая ссылку на источник.
 
+**Хэштеги:** по умолчанию не используй. Максимум один — только для конкретного
+события, кампании или сообщества. Общие `#crypto`, `#DeFi`, `#DEX`, `#AIagents`
+не добавляй: они занимают дефицитные символы и не дают охвата. Если новость про
+конкретную монету, используй cashtag `$BTC`, `$XRP`, а не `#BTC`.
+
 **Структура:**
 
 1. Hook — 3–5 sharp words. No fluff.
@@ -217,8 +222,6 @@ Zero-fee DEX? Check what you're paying for.
 The protocol announced zero-fee swaps, but spread, slippage and gas didn't disappear.
 
 "Free" in DeFi usually means the cost just moved to another line.
-
-#DeFi #DEX
 ```
 
 ## ВКонтакте
@@ -351,7 +354,7 @@ Start Search News
       "content": "AI-агент может следить за DEX круглосуточно. Но принимать решения за вас — не обязательно.\n\n-  DEX — децентрализованная биржа, где обмен токенов проходит через смарт-контракт.\n-  AI-агент способен анализировать ликвидность, объёмы, ценовые отклонения и активность кошельков.\n-  Это полезно для поиска идей и ранних сигналов, но не заменяет проверку рисков.\n\nАвтоматизация торговли начинается не с кнопки «купить», а с лимитов, тестов и контроля доступа к кошельку.\n\nСохрани пост, если интересуешься DeFi и AI-агентами.\n\nНапиши в комментариях: какой DEX ты используешь чаще всего?\n\n#crypto #defi #dex #web3 #aiagents #tradingbots #криптовалюта #DeFi #AI #криптоаналитика"
     },
     "x": {
-      "content": "AI agent for DEX: monitoring yes, autonomous trades — careful.\n\nLiquidity, volume and anomaly analysis saves time. It doesn't replace checking the contract, pool risks and execution settings.\n\nAutomation without limits isn't a strategy. It's hope.\n\n#DeFi #DEX #AIagents"
+      "content": "AI agent for DEX: monitoring yes, autonomous trades — careful.\n\nLiquidity, volume and anomaly analysis saves time. It doesn't replace checking the contract, pool risks and execution settings.\n\nAutomation without limits isn't a strategy. It's hope."
     },
     "tiktok": {
       "content": "AI-агент может следить за DEX 24/7 🤖\n\nОн анализирует ликвидность, объёмы и необычную активность в пулах. Это помогает быстрее замечать изменения, но не означает, что агент должен сам покупать токены.\n\nСначала лимиты, тесты и контроль кошелька. Потом — автоматизация.\n\nПодпишись, если хочешь понимать DeFi и AI-агентов без хайпа 👊\n\n#crypto #defi #dex #aiagents #tradingbots"
@@ -383,7 +386,7 @@ Start Search News
       "content": "AI-агент в криптокошельке может объяснить транзакцию до того, как вы нажмёте «Подтвердить».\n\n-  Он может показать, какой токен уходит и куда.\n-  Он может предупредить о необычном запросе разрешений.\n-  Он может упростить проверку комиссии и сети.\n\nНо seed-фразу, приватный ключ и доступ к кошельку AI-агенту передавать нельзя.\n\nСохрани пост, чтобы не потерять. Отправь другу, который только начинает пользоваться криптокошельком.\n\n#crypto #cryptowallet #web3 #defi #security #aiagents #криптокошелёк #криптовалюта #безопасность #DeFi"
     },
     "x": {
-      "content": "AI in a crypto wallet should explain the transaction, not sign it for you.\n\nChecking the token, recipient, approvals and network is useful automation. Giving the agent your seed phrase is not.\n\n#crypto #web3 #security"
+      "content": "AI in a crypto wallet should explain the transaction, not sign it for you.\n\nChecking the token, recipient, approvals and network is useful automation. Giving the agent your seed phrase is not."
     },
     "tiktok": {
       "content": "AI-агент в криптокошельке может объяснить, что вы подписываете 🔐\n\nОн показывает токен, получателя, комиссию и подозрительные разрешения. Это полезно, особенно если вы только начинаете пользоваться Web3.\n\nНо seed-фразу и приватный ключ агенту не передавайте. Никогда.\n\nПодпишись, если хочешь безопаснее работать с криптой 👊\n\n#crypto #cryptowallet #web3 #security #aiagents"
@@ -415,7 +418,7 @@ Start Search News
       "content": "AI-модель может помочь исследовать крипторынок. Но она не заменяет стратегию и контроль риска.\n\n-  AI собирает и сопоставляет данные: цены, объёмы, on-chain-активность, новости.\n-  Трейдер формулирует гипотезу и проверяет её на исторических данных.\n-  Торговый робот исполняет правила, а не «чувствует рынок».\n\nБэктест — это проверка идеи на прошлых данных. Он полезен, но не гарантирует будущий результат.\n\nСохрани пост, если интересуешься автоматизацией торговли. Напиши в комментариях, какой инструмент ты бы подключил к AI-агенту.\n\n#crypto #tradingbots #aiagents #cryptotrading #defi #dex #quant #криптотрейдинг #торговыероботы #ИИ"
     },
     "x": {
-      "content": "AI doesn't predict crypto markets. It helps test hypotheses.\n\nCollect data, define a rule, run a backtest, add risk limits. Only then consider automating execution.\n\nA bot without risk limits isn't a trader. It's an error accelerator.\n\n#crypto #tradingbots #AIagents"
+      "content": "AI doesn't predict crypto markets. It helps test hypotheses.\n\nCollect data, define a rule, run a backtest, add risk limits. Only then consider automating execution.\n\nA bot without risk limits isn't a trader. It's an error accelerator."
     },
     "tiktok": {
       "content": "AI-модель не угадывает цену крипты 🤖\n\nОна помогает собрать данные, найти закономерности и проверить гипотезу на истории. Это называется бэктест.\n\nНо прошлая доходность не гарантирует будущую. Поэтому сначала лимиты риска, потом автоматизация сделок.\n\nПодпишись, если хочешь разобраться в торговых роботах и AI-аналитике 👊\n\n#crypto #tradingbots #aiagents #cryptotrading #defi"
