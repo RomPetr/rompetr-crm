@@ -18,6 +18,9 @@ backups/
 .env
 .env.*
 !.env.example
+CSR.txt
+*.key
+*.pem
 .claude/env.txt
 .claude/skills/**/env.txt
 .claude/skills/**/api_vk.txt
