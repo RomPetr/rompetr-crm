@@ -91,6 +91,7 @@ class Settings(BaseSettings):
 
     guest_compose_limit: int = 1
     guest_image_limit: int = 2
+    guest_publication_limit: int = 1
 
     feature_ai_check: bool = True
     feature_compose: bool = False

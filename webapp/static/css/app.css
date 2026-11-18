@@ -85,6 +85,19 @@ h2 { font-size: 20px; margin: 0 0 8px; }
   font: inherit;
 }
 .reason-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.limits-form { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.limits-form label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+.limits-form input[type="number"] {
+  width: 72px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.limits-form input[type="number"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .usage-badge { white-space: nowrap; }
 .usage-badge.exhausted {
   color: #fecaca;

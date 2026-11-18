@@ -66,7 +66,7 @@ def test_guest_has_one_search_and_two_images(client):
     assert "Сгенерировать новость" in page.text
     assert "Поиск: 0/1" in page.text
     assert "Картинки: 0/2" in page.text
-    assert "Публикаций: 0" in page.text
+    assert "Публикаций: 0/1" in page.text
 
     first_news = client.post(
         f"/drafts/{post_id}/generate-news",
@@ -109,4 +109,4 @@ def test_guest_has_one_search_and_two_images(client):
     page = client.get(f"/drafts/{post_id}")
     assert "Поиск: 1/1" in page.text
     assert "Картинки: 2/2" in page.text
-    assert "Публикаций: 0" in page.text
+    assert "Публикаций: 0/1" in page.text

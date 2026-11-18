@@ -49,18 +49,24 @@ def _usage(db: Session, user: User, post: Post) -> dict:
     if user.role == "guest":
         compose_used = usage_service.user_job_count(db, user.id, "compose_news")
         image_used = usage_service.user_job_count(db, user.id, "generate_image")
-        compose_limit, image_limit = usage_service.effective_guest_limits(user, settings)
+        compose_limit, image_limit, publication_limit = usage_service.effective_guest_limits(
+            user, settings
+        )
+        publications = usage_service.user_publication_count(db, user.id)
     else:
         compose_used = usage_service.post_job_count(db, post.id, "compose_news")
         image_used = usage_service.post_job_count(db, post.id, "generate_image")
         compose_limit = 0
         image_limit = 0
+        publication_limit = 0
+        publications = usage_service.post_publication_count(db, post.id)
     return {
         "compose_used": compose_used,
         "image_used": image_used,
         "compose_limit": compose_limit,
         "image_limit": image_limit,
-        "publications": usage_service.post_publication_count(db, post.id),
+        "publications": publications,
+        "publication_limit": publication_limit,
     }
 
 
@@ -360,11 +366,23 @@ def delete_asset(post_id: int, asset_id: int, request: Request, db: Session = De
 def publish_now(post_id: int, request: Request, db: Session = Depends(get_db)):
     user: User = request.state.user
     post = _get_post(db, post_id, user)
-    if user.role == "guest":
-        raise HTTPException(status_code=403, detail="Гостевой доступ не позволяет публиковать")
     if post.status == "published":
         raise HTTPException(status_code=400, detail="Пост уже опубликован")
-    if post.status not in {"approved", "published"}:
+    if user.role == "guest":
+        if post.status != "approved":
+            raise HTTPException(
+                status_code=400,
+                detail="Публикация возможна только после одобрения администратором",
+            )
+        settings = get_settings()
+        _, _, publication_limit = usage_service.effective_guest_limits(user, settings)
+        used = usage_service.user_publication_count(db, user.id)
+        if used >= publication_limit:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Гостевой лимит публикаций исчерпан ({publication_limit}).",
+            )
+    elif post.status not in {"approved", "published"}:
         if user.role != "admin":
             raise HTTPException(status_code=400, detail="Публикация доступна только для одобренного поста")
         errors = posts.validate_post(post)
@@ -435,7 +453,7 @@ def enqueue_generate_image(
         raise HTTPException(status_code=400, detail="Сначала включите image_prompt")
     if user.role == "guest":
         settings = get_settings()
-        _, image_limit = usage_service.effective_guest_limits(user, settings)
+        _, image_limit, _ = usage_service.effective_guest_limits(user, settings)
         used = usage_service.user_job_count(db, user.id, "generate_image")
         if used >= image_limit:
             raise HTTPException(
@@ -497,7 +515,7 @@ def enqueue_compose_news(
         raise HTTPException(status_code=403)
     if user.role == "guest":
         settings = get_settings()
-        compose_limit, _ = usage_service.effective_guest_limits(user, settings)
+        compose_limit, _, _ = usage_service.effective_guest_limits(user, settings)
         used = usage_service.user_job_count(db, user.id, "compose_news")
         if used >= compose_limit:
             raise HTTPException(

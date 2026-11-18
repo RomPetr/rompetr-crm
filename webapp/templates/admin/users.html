@@ -22,17 +22,20 @@
       <td>
         {% if u.role == 'guest' %}
           {% set limits = guest_limits[u.id] %}
-          <div class="muted">Поиск: {{ limits.compose_used }}/{{ limits.compose_limit }} · Картинки: {{ limits.image_used }}/{{ limits.image_limit }}</div>
-          <div class="actions-cell">
-            <form method="post" action="/admin/users/{{ u.id }}/limits/compose">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <button class="button small secondary" type="submit">+1 поиск</button>
-            </form>
-            <form method="post" action="/admin/users/{{ u.id }}/limits/image">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <button class="button small secondary" type="submit">+1 картинка</button>
-            </form>
-          </div>
+          <div class="muted">Поиск: {{ limits.compose_used }}/{{ limits.compose_limit }} · Картинки: {{ limits.image_used }}/{{ limits.image_limit }} · Публикации: {{ limits.publications_used }}/{{ limits.publication_limit }}</div>
+          <form method="post" action="/admin/users/{{ u.id }}/limits" class="limits-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <label>Поиск
+              <input name="compose_limit" type="number" min="0" max="1000" value="{{ limits.compose_limit }}" required>
+            </label>
+            <label>Картинки
+              <input name="image_limit" type="number" min="0" max="1000" value="{{ limits.image_limit }}" required>
+            </label>
+            <label>Публикации
+              <input name="publication_limit" type="number" min="0" max="1000" value="{{ limits.publication_limit }}" required>
+            </label>
+            <button class="button small secondary" type="submit">Сохранить лимиты</button>
+          </form>
         {% else %}
           <span class="muted">—</span>
         {% endif %}

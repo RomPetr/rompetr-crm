@@ -61,7 +61,7 @@ def test_register_verify_login_and_approve(client):
     assert "роль: guest" in dashboard.text
 
     published = client.post("/drafts/1/publish", data={"csrf_token": token})
-    assert published.status_code in {403, 404, 405}
+    assert published.status_code in {400, 403, 404, 405}
 
     client.post("/logout", data={"csrf_token": token})
 

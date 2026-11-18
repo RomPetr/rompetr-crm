@@ -162,7 +162,7 @@ def test_image_upload_and_private_media(client):
     assert ".png" in disposition
 
 
-def test_guest_cannot_publish(client):
+def test_guest_cannot_publish_unapproved(client):
     from webapp.db import SessionLocal
     from webapp.models.user import User
     from webapp.services.security import hash_password
@@ -190,7 +190,8 @@ def test_guest_cannot_publish(client):
     )
     post_id = int(created.headers["location"].rstrip("/").split("/")[-1])
     publish = client.post(f"/drafts/{post_id}/publish", data={"csrf_token": token})
-    assert publish.status_code == 403
+    assert publish.status_code == 400
+    assert "одобрения" in publish.text
 
 
 def test_publisher_homepage_field(client):

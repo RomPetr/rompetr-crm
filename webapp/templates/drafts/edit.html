@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set ai = ai_changes if ai_changes is defined and ai_changes else {} %}
-{% set usage = usage if usage is defined and usage else {"compose_used": 0, "image_used": 0, "compose_limit": 0, "image_limit": 0, "publications": 0} %}
+{% set usage = usage if usage is defined and usage else {"compose_used": 0, "image_used": 0, "compose_limit": 0, "image_limit": 0, "publications": 0, "publication_limit": 0} %}
 {% block title %}{{ post.title or "Черновик" }}
 {% endblock %}
 {% block content %}
@@ -303,11 +303,27 @@
 <section class="card note">
   <h2>Публикация</h2>
   {% if user.role == "guest" %}
-    <p class="muted">Гостевой доступ: публикация только после одобрения администратором.</p>
+    <p class="muted">Гостевой доступ: публикация возможна после одобрения администратором и при положительном лимите публикаций.</p>
     <div class="actions-row">
-      <button class="button" type="button" disabled>Опубликовать</button>
-      <span class="badge usage-badge">Публикаций: {{ usage.publications }}</span>
+      {% if post.status == "published" %}
+        <button class="button" type="button" disabled>Опубликовано</button>
+      {% elif post.status == "approved" and usage.publications < usage.publication_limit %}
+        <form method="post" action="/drafts/{{ post.id }}/publish">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="button" type="submit">Опубликовать</button>
+        </form>
+      {% else %}
+        <button class="button" type="button" disabled>Опубликовать</button>
+      {% endif %}
+      <span class="badge usage-badge{% if usage.publications >= usage.publication_limit %} exhausted{% endif %}">Публикаций: {{ usage.publications }}/{{ usage.publication_limit }}</span>
     </div>
+    {% if post.status == "published" %}
+      <p class="ok">Опубликовано. Повторная публикация отключена.</p>
+    {% elif post.status == "approved" and usage.publications >= usage.publication_limit %}
+      <p class="muted">Лимит публикаций исчерпан. Попросите администратора увеличить лимит.</p>
+    {% elif post.status != "approved" %}
+      <p class="muted">Публикация станет доступна после одобрения администратором.</p>
+    {% endif %}
   {% else %}
     {% if post.status not in ["approved", "published"] and check_ok %}
       <p class="ok">Проверка пройдена — можно публиковать.</p>

@@ -36,20 +36,25 @@ def test_admin_can_grant_guest_limits(client):
     )
     assert login.status_code == 303
 
-    for kind in ("compose", "image"):
-        granted = client.post(
-            f"/admin/users/{guest_id}/limits/{kind}",
-            data={"csrf_token": token},
-            follow_redirects=False,
-        )
-        assert granted.status_code == 303
-        assert granted.headers["location"] == "/admin/users?ok=limits"
+    granted = client.post(
+        f"/admin/users/{guest_id}/limits",
+        data={
+            "csrf_token": token,
+            "compose_limit": "2",
+            "image_limit": "3",
+            "publication_limit": "4",
+        },
+        follow_redirects=False,
+    )
+    assert granted.status_code == 303
+    assert granted.headers["location"] == "/admin/users?ok=limits"
 
     db = SessionLocal()
     try:
         guest = db.get(User, guest_id)
         assert guest.guest_compose_limit == 2
         assert guest.guest_image_limit == 3
+        assert guest.guest_publication_limit == 4
     finally:
         db.close()
 
@@ -58,5 +63,5 @@ def test_admin_can_grant_guest_limits(client):
     assert "Гостевые лимиты обновлены." in page.text
     assert "Поиск: 0/2" in page.text
     assert "Картинки: 0/3" in page.text
-    assert "+1 поиск" in page.text
-    assert "+1 картинка" in page.text
+    assert "Публикации: 0/4" in page.text
+    assert "Сохранить лимиты" in page.text

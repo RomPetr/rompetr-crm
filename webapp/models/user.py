@@ -51,6 +51,7 @@ class User(Base):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     guest_compose_limit: Mapped[int | None] = mapped_column(Integer)
     guest_image_limit: Mapped[int | None] = mapped_column(Integer)
+    guest_publication_limit: Mapped[int | None] = mapped_column(Integer)
 
     sessions: Mapped[list[UserSession]] = relationship(back_populates="user")
 
