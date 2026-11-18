@@ -480,6 +480,23 @@ $//'`.
   ключа. После их получения: `APP_ENV=prod`, `APP_BASE_URL=https://rompetr.autos`,
   `COOKIE_SECURE=true`, `listen 443 ssl` + редирект с 80.
 
+### 2026-11-18 — сертификат GoGetSSL, HTTPS на втором IP
+
+- В `CSR.txt` пришли CSR, приватный ключ и цепочка. Лишний блок с телом CSR под
+  заголовком `CERTIFICATE` отброшен; ключ сверен с leaf-сертификатом (совпадает).
+- Сертификат: CN `rompetr.autos`, SAN `rompetr.autos` + `www.rompetr.autos`,
+  срок до 04.06.2027. Fullchain: leaf + GoGetSSL RSA DV SSL CA 2 + Sectigo R46;
+  проверка `openssl verify` — OK.
+- Установлено в `/etc/nginx/ssl/`: fullchain, leaf, ca-bundle, key (600 root).
+- Обнаружен конфликт: xray Reality слушал `0.0.0.0:443`, nginx не мог занять 443.
+  Xray 443-инбаунд переведён на `62.171.228.41:443`; VPN-клиенты, подключающиеся
+  к `.41`, не меняются. Nginx HTTPS слушает `62.171.228.183:443`.
+- Локальная проверка: `curl --resolve rompetr.autos:443:62.171.228.183` → 200
+  для apex и www. HTTP-сайт пока остаётся рабочим на `.41`.
+- `APP_ENV`/`APP_BASE_URL`/`COOKIE_SECURE` временно возвращены в dev/http/false,
+  чтобы сайт не сломался до переключения DNS. После смены A-записей на `.183`:
+  HTTPS-редирект, `APP_ENV=prod`, `https://rompetr.autos`, `COOKIE_SECURE=true`.
+
 Осталось:
 
 - [x] Домен `rompetr.autos` направлен на `62.171.228.41`; HTTP и DCV-файл работают.

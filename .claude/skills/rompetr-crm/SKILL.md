@@ -135,12 +135,13 @@ Remote: `https://github.com/RomPetr/rompetr-crm` (публичный, ветка
 
 | Параметр | Значение |
 |---|---|
-| Адрес | `http://rompetr.autos` — домен работает, TLS ожидает сертификат провайдера |
+| Адрес | `http://rompetr.autos`; HTTPS готов на `.183:443`, DNS ещё на `.41` |
 | ОС | Debian 12, Python 3.11 |
 | База | PostgreSQL 15 |
 | Код / venv | `/srv/rompetr/crm` / `/srv/rompetr/venv` |
 | Конфиг | `/etc/rompetr-crm/app.env` (640 `root:cpapp`) |
-| Сервисы | `rompetr-web`, `rompetr-worker`, `nginx`, `gost-claude` |
+| Сервисы | `rompetr-web`, `rompetr-worker`, `nginx`, `gost-claude`, `xray` |
+| Сеть | HTTP `.41:80`; HTTPS nginx `.183:443`; xray Reality `.41:443` |
 | AI | Claude Code CLI + DeepSeek, `CLAUDE_HTTP_PROXY` → gost → `62.171.228.183` |
 
 Хронология фактического деплоя, исправленных ошибок и проверок —
@@ -182,9 +183,9 @@ sed -i 's/\r$//' /etc/rompetr-crm/app.env   # CRLF ломает булевы з�
 `WORKER_INPROCESS=false`, `WORKER_ID`, `CLAUDE_*`. Значения не печатать и не коммитить.
 
 - **Текущий этап:** `APP_ENV=dev`, `APP_BASE_URL=http://rompetr.autos`,
-  `COOKIE_SECURE=false`.
-- **После установки сертификата:** `APP_ENV=prod`, `APP_BASE_URL=https://rompetr.autos`,
-  `COOKIE_SECURE=true`.
+  `COOKIE_SECURE=false`; HTTPS уже работает на `.183`, но DNS ещё на `.41`.
+- **После смены DNS на `.183`:** `APP_ENV=prod`, `APP_BASE_URL=https://rompetr.autos`,
+  `COOKIE_SECURE=true`, HTTP → HTTPS redirect.
 
 Проверить, что файл без CRLF (`sed -i 's/\r$//'`), иначе pydantic не разберёт
 булевы значения.
@@ -259,14 +260,20 @@ systemctl enable --now rompetr-web rompetr-worker
 
 ### 8.4. nginx, TLS, firewall
 
-На текущем стенде DNS `rompetr.autos` и `www.rompetr.autos` указывает на
-`62.171.228.41`, nginx слушает HTTP и отдаёт DCV-файл. TLS ещё не включён:
-ожидаются файлы сертификата от провайдера. Для проверки домена используется
-`/.well-known/pki-validation/` из `/srv/rompetr/dcv/`.
+На сервере два IP:
+
+- `62.171.228.41` — xray Reality на `:443`, nginx HTTP на `:80`;
+- `62.171.228.183` — nginx HTTPS на `:443`, сертификат GoGetSSL.
+
+DNS сейчас указывает на `.41`, поэтому публичный адрес — `http://rompetr.autos`.
+HTTPS на `.183` уже проверен локально (`curl --resolve ... https://rompetr.autos`
+→ 200). После смены A-записей на `.183` включается редирект HTTP → HTTPS.
+
+HTTP-сервер (текущий этап):
 
 ```nginx
 server {
-    listen 80;
+    listen 80 default_server;
     server_name 62.171.228.41 rompetr.autos www.rompetr.autos;
     client_max_body_size 12m;
 
@@ -275,9 +282,34 @@ server {
         default_type text/plain;
         add_header Cache-Control "no-store";
     }
-    location /static/ {
-        alias /srv/rompetr/crm/webapp/static/;
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
+}
+```
+
+HTTPS-сервер:
+
+```nginx
+server {
+    listen 62.171.228.183:443 ssl http2;
+    server_name rompetr.autos www.rompetr.autos;
+    client_max_body_size 12m;
+
+    ssl_certificate /etc/nginx/ssl/rompetr.autos.fullchain.crt;
+    ssl_certificate_key /etc/nginx/ssl/rompetr.autos.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    location ^~ /.well-known/pki-validation/ {
+        root /srv/rompetr/dcv;
+        default_type text/plain;
+    }
+    location /static/ { alias /srv/rompetr/crm/webapp/static/; }
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
@@ -294,14 +326,19 @@ nginx -t && systemctl reload nginx   # одного enable --now недоста�
 ufw allow 22,80,443/tcp && ufw enable
 ```
 
+**Важно:** xray Reality занимает `62.171.228.41:443`. Нельзя поднимать nginx
+на `0.0.0.0:443`, пока xray не ограничен адресом `.41`; иначе nginx не
+запустится с `bind() ... Address already in use`. На текущем стенде xray
+слушает только `.41`, а nginx — `.183`.
+
 Для DCV провайдера файл кладётся в
 `/srv/rompetr/dcv/.well-known/pki-validation/<token>.txt`, проверяется через
 `http://rompetr.autos/.well-known/pki-validation/<token>.txt`.
 
 Для Let's Encrypt можно использовать `certbot --nginx -d rompetr.autos -d
-www.rompetr.autos`. Если сертификат выдан провайдером по CSR, вместо certbot
-нужно положить файлы в `/etc/nginx/ssl/` и добавить `listen 443 ssl` с путями
-`ssl_certificate` / `ssl_certificate_key`.
+www.rompetr.autos`. Если сертификат выдан провайдером по CSR, файлы кладутся в
+`/etc/nginx/ssl/`; `ssl_certificate` должен указывать на fullchain
+(leaf + intermediate), `ssl_certificate_key` — на приватный ключ.
 
 ### 8.5. Claude Code для worker
 
@@ -353,8 +390,9 @@ systemctl is-active gost-claude
 ### 8.6. Проверка после деплоя
 
 ```bash
-curl -fsS http://62.171.228.41/healthz
-systemctl is-active rompetr-web rompetr-worker nginx gost-claude
+curl -fsS http://rompetr.autos/healthz
+curl -fsS --resolve rompetr.autos:443:62.171.228.183 https://rompetr.autos/healthz
+systemctl is-active rompetr-web rompetr-worker nginx gost-claude xray
 journalctl -u rompetr-worker -n 50 --no-pager
 ```
 
@@ -370,7 +408,8 @@ cd /srv/rompetr/crm
 set -a; . /etc/rompetr-crm/app.env; set +a
 runuser -u cpapp -m -- /srv/rompetr/venv/bin/python -m alembic upgrade head
 systemctl restart rompetr-worker rompetr-web
-curl -fsS http://62.171.228.41/healthz
+curl -fsS http://rompetr.autos/healthz
+curl -fsS --resolve rompetr.autos:443:62.171.228.183 https://rompetr.autos/healthz
 ```
 
 Миграции запускать **до** перезапуска web: новая модель может ожидать колонки,
@@ -391,6 +430,8 @@ AI-задачу из UI.
 | gost не работает / не тот исходящий IP | `systemctl status gost-claude`; `curl -x http://127.0.0.1:3128 https://api.ipify.org` должен вернуть `62.171.228.183` |
 | VPS-кнопка «Открыть X с картинкой» недоступна | на VPS нет GUI и Node; X-композер запускается на Windows-машине с Chrome-профилем |
 | После обновления ошибка о missing column | миграции применить **до** перезапуска web: `alembic upgrade head` |
+| nginx не стартует: `bind() to 0.0.0.0:443 failed` | порт занят xray; xray должен слушать `62.171.228.41:443`, nginx — `62.171.228.183:443` |
+| `https://rompetr.autos` попадает в xray / TLS alert | DNS ещё указывает на `.41`; переключить A/AAAA на `62.171.228.183` |
 | «Сгенерировать новость»: `budget_exhausted`, черновик пуст | JSON мог быть записан в `var/jobs/<public_id>/post.json`; поднять `CLAUDE_COMPOSE_BUDGET_USD`, запретить субагентов, `compose_news` имеет `max_attempts=1` |
 | Telegram длиннее 1024 после AI-перевода | Checker обязан пересчитывать длину после перевода; `run_ai_check` теперь отклоняет JSON с выходом за лимит и не применяет его |
 | Новая картинка сгенерировалась, но в черновике старая | Проверить `assets.is_primary`; новая картинка должна становиться primary, старые — `false` |
