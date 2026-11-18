@@ -100,7 +100,9 @@ def test_ai_check_job_updates_post(monkeypatch):
     def fake_run(prompt, job_id, timeout_sec=None):
         path = ROOT / "var" / "jobs" / job_id / "post.json"
         data = json.loads(path.read_text(encoding="utf-8"))
-        data["platforms"]["telegram"]["content"] = "Исправленный текст.\n\nhttps://www.theblock.co/"
+        data["platforms"]["telegram"]["content"] = (
+            "Исправленный текст. " + ("Т" * 830) + "\n\nhttps://www.theblock.co/"
+        )
         path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         return SimpleNamespace(
             exit_code=0,
@@ -126,6 +128,45 @@ def test_ai_check_job_updates_post(monkeypatch):
         assert post.platforms["telegram"].startswith("Исправленный текст.")
         assert post.version == old_version + 1
         assert job.payload["result"]["changes"]["telegram"] == "fixed"
+    finally:
+        db.close()
+
+
+def test_ai_check_rejects_oversized_telegram(monkeypatch):
+    def fake_run(prompt, job_id, timeout_sec=None):
+        path = ROOT / "var" / "jobs" / job_id / "post.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["platforms"]["telegram"]["content"] = (
+            ("Т" * 1040) + "\n\nhttps://www.theblock.co/"
+        )
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        return SimpleNamespace(
+            exit_code=0,
+            stdout="",
+            stderr="",
+            parsed={"result": "PASS"},
+            timed_out=False,
+            log_path=None,
+        )
+
+    monkeypatch.setattr("webapp.worker.claude_runner.run", fake_run)
+
+    db = SessionLocal()
+    try:
+        post = make_draft(db, "AI check oversized")
+        old_telegram = post.platforms["telegram"]
+        old_version = post.version
+        job = jobs.enqueue(db, "ai_check", post, created_by=0)
+        job.max_attempts = 1
+        job.attempts = 1
+        db.commit()
+        process(db, job)
+        db.refresh(job)
+        db.refresh(post)
+        assert job.status == "failed"
+        assert "вне лимитов" in (job.error or "")
+        assert post.platforms["telegram"] == old_telegram
+        assert post.version == old_version
     finally:
         db.close()
 

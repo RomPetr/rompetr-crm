@@ -57,6 +57,12 @@ def _check_prompt(path: Path) -> str:
         "оно должно остаться на английском, но проверь его английский и длину. "
         "Не добавляй новых фактов. В каждой площадке последняя строка — ссылка "
         "на главную страницу издания из source.publisher. Не меняй source. "
+        "После перевода обязательно пересчитай длину каждой включённой площадки "
+        "вместе со ссылкой: Telegram 800–1024 символа, VK 700–1500, X до 280 "
+        "(только английский), Instagram 100–200 слов и 5–10 хэштегов, "
+        "TikTok 50–120 слов и 3–5 хэштегов. Перевод часто удлиняет текст: если "
+        "Telegram стал длиннее 1024 символов, сокращай формулировки, сохраняя "
+        "факты и цифры, пока не войдёшь в лимит. Не сдавай файл с превышением. "
         "Правь JSON только через Edit/Write. В ответе верни короткий вердикт "
         "PASS или NEEDS_FIX и список переводов/правок."
     )
@@ -114,6 +120,26 @@ def run_ai_check(db: Session, job: Job) -> dict:
         document = PostDocumentPartial.model_validate(json.loads(path.read_text(encoding="utf-8")))
     except (ValidationError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"Checker вернул невалидный JSON: {exc}") from exc
+
+    source = {
+        "title": document.source.title,
+        "url": str(document.source.url),
+        "published_at": document.source.published_at,
+        "publisher": document.source.publisher,
+    }
+    platforms = {
+        name: item.content
+        for name in PLATFORMS
+        if (item := getattr(document.platforms, name, None)) is not None
+    }
+    errors = validate_document(
+        source,
+        document.image_prompt,
+        platforms,
+        check_prompt=post.image_enabled,
+    )
+    if errors:
+        raise RuntimeError("Checker вернул текст вне лимитов: " + "; ".join(errors[:8]))
 
     changes: dict[str, str] = {}
     for name, old_text in before.items():
