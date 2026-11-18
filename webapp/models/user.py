@@ -11,6 +11,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,6 +32,13 @@ class User(Base):
         CheckConstraint("length(login) BETWEEN 3 AND 32", name="ck_users_login_len"),
         Index("ix_users_login", "login"),
         Index("ix_users_email", "email"),
+        Index(
+            "ux_users_one_admin",
+            "role",
+            unique=True,
+            postgresql_where=text("role = 'admin'"),
+            sqlite_where=text("role = 'admin'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
