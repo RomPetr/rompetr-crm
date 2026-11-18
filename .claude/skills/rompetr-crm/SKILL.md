@@ -8,8 +8,8 @@ description: Работа с репозиторием rompetr-crm: структ�
 ## 1. Что это
 
 FastAPI-приложение для подготовки и публикации новостей «Разум DEX». Стек:
-FastAPI + Jinja2/HTMX, PostgreSQL, SQLAlchemy 2 + Alembic, Pydantic v2,
-Argon2id, очередь `jobs`, worker с Claude Code CLI и ProxyAPI.
+FastAPI + Jinja2 + собственный CSS/JS, PostgreSQL, SQLAlchemy 2 + Alembic,
+Pydantic v2, Argon2id, очередь `jobs`, worker с Claude Code CLI и ProxyAPI.
 
 Главное правило: **Claude Code не публикует в соцсети**. Публикацию выполняет
 детерминированный Python-код (`webapp/services/publish.py`) после действия
@@ -32,9 +32,12 @@ webapp/
   worker.py          цикл обработки jobs
 alembic/versions/    миграции; новые схемы только через Alembic
 scripts/             git_guard, json_to_md, smoke_publish, init_db,
-                     pg_recover, check_keys, install_hooks
-tests/               pytest: auth, drafts, publish, jobs, compose, guard
-docs/                CRM-PLAN.md, DEPLOY-JOURNAL.md
+                     pg_recover, check_keys, install_hooks,
+                     setup-deepseek-env
+tests/               pytest: auth, drafts, publish, jobs, compose,
+                     moderation, guest quotas, media, guard
+docs/                CRM-PLAN.md, DEPLOY-JOURNAL.md,
+                     CLAUDE-CODE-DEEPSEEK-SETUP.md
 .claude/             скиллы, субагенты, команды, планы
 posts/               данные постов (в git не попадают)
 var/                 media, jobs, logs, mail, backups (в git не попадают)
@@ -128,8 +131,21 @@ Remote: `https://github.com/RomPetr/rompetr-crm` (публичный, ветка
 
 ## 8. Деплой на Linux-сервер
 
-Целевая среда: Debian 12, Python 3.11+, PostgreSQL, nginx, systemd, без Docker.
-Публичный репозиторий: `https://github.com/RomPetr/rompetr-crm`.
+Проект **уже развёрнут** на VPS 18.11.2026. Текущий стенд:
+
+| Параметр | Значение |
+|---|---|
+| Адрес | `http://62.171.228.41` — IP-этап, без домена и TLS |
+| ОС | Debian 12, Python 3.11 |
+| База | PostgreSQL 15 |
+| Код / venv | `/srv/rompetr/crm` / `/srv/rompetr/venv` |
+| Конфиг | `/etc/rompetr-crm/app.env` (640 `root:cpapp`) |
+| Сервисы | `rompetr-web`, `rompetr-worker`, `nginx`, `gost-claude` |
+| AI | Claude Code CLI + DeepSeek, `CLAUDE_HTTP_PROXY` → gost → `62.171.228.183` |
+
+Хронология фактического деплоя, исправленных ошибок и проверок —
+в `docs/DEPLOY-JOURNAL.md`. Ниже — воспроизводимая процедура для чистого сервера.
+Публичный репозиторий: `https://github.com/RomPetr/rompetr-crm`. Docker не используется.
 
 ### 8.1. Пакеты и пользователи
 
@@ -162,17 +178,33 @@ install -o root -g cpapp -m 640 /srv/rompetr/crm/.env.example /etc/rompetr-crm/a
 sed -i 's/\r$//' /etc/rompetr-crm/app.env   # CRLF ломает булевы значения pydantic
 ```
 
-Заполнить `APP_ENV=prod`, `APP_BASE_URL=https://домен`, `COOKIE_SECURE=true`,
-`DATABASE_URL`, `APP_SECRET_KEY`, `ADM_PASSW`, ключи VK/Telegram/ProxyAPI,
-`WORKER_INPROCESS=false`, `WORKER_ID`, `CLAUDE_*`. Значения не печатать и не
-коммитить.
+Заполнить `DATABASE_URL`, `APP_SECRET_KEY`, `ADM_PASSW`, ключи VK/Telegram/ProxyAPI,
+`WORKER_INPROCESS=false`, `WORKER_ID`, `CLAUDE_*`. Значения не печатать и не коммитить.
 
-Создать роль и БД, затем миграции от пользователя приложения:
+- **Текущий IP-этап:** `APP_ENV=dev`, `APP_BASE_URL=http://62.171.228.41`,
+  `COOKIE_SECURE=false`.
+- **После переключения домена:** `APP_ENV=prod`, `APP_BASE_URL=https://rompetr.ru`,
+  `COOKIE_SECURE=true`, затем TLS через certbot.
+
+Проверить, что файл без CRLF (`sed -i 's/\r$//'`), иначе pydantic не разберёт
+булевы значения.
+
+Создать роль и БД (пароль заменить; роль должна владеть схемой, чтобы Alembic мог
+делать DDL), затем миграции от пользователя приложения:
 
 ```bash
+sudo -u postgres psql <<'SQL'
+CREATE ROLE rompetr_app LOGIN PASSWORD 'change-me';
+CREATE DATABASE rompetr OWNER rompetr_app;
+SQL
+
 set -a; . /etc/rompetr-crm/app.env; set +a
 /srv/rompetr/venv/bin/python -m alembic -c /srv/rompetr/crm/alembic.ini upgrade head
 ```
+
+`DATABASE_URL` должен указывать на `rompetr_app` и базу `rompetr`. Медиа хранится
+в `MEDIA_ROOT=var/media`, то есть на VPS:
+`/srv/rompetr/crm/var/media/posts/<post.public_id>/<sha256[:20]>.png`.
 
 ### 8.3. systemd
 
@@ -198,10 +230,26 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-`/etc/systemd/system/rompetr-worker.service` — то же, но `User=cpworker` и:
+`/etc/systemd/system/rompetr-worker.service`:
 
 ```ini
+[Unit]
+Description=rompetr-crm worker
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=cpworker
+Group=cpmedia
+WorkingDirectory=/srv/rompetr/crm
+EnvironmentFile=/etc/rompetr-crm/app.env
+Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/srv/rompetr/venv/bin/python -m webapp.worker
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
 ```
 
 ```bash
@@ -210,6 +258,10 @@ systemctl enable --now rompetr-web rompetr-worker
 ```
 
 ### 8.4. nginx, TLS, firewall
+
+Конфиг ниже — для этапа с доменом. На текущем стенде работает `listen 80` и
+`server_name _` (или IP), TLS ещё не выпущен; сертификат добавляется только после
+переключения DNS на `62.171.228.41`.
 
 ```nginx
 server {
@@ -252,17 +304,42 @@ install -d -o cpworker -g cpworker -m 700 /var/lib/rompetr/claude
 `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `CLAUDE_MODEL`,
 `ANTHROPIC_DEFAULT_{SONNET,OPUS,HAIKU}_MODEL`.
 
-- Модель должна поддерживаться провайдером. Для DeepSeek это `deepseek-flash`
-  или `deepseek-v4-pro`; алиасы вида `...:cloud` API отклоняет.
+- На текущем VPS: `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`,
+  `CLAUDE_MODEL=deepseek-flash`, `CLAUDE_CODE_OAUTH_TOKEN` пустой. Модель должна
+  поддерживаться провайдером: DeepSeek принимает `deepseek-flash` и `deepseek-v4-pro`;
+  алиасы `...:cloud` и `...[1m]` API отклоняет.
 - Если нужен отдельный исходящий IP, поднять gost и задать
   `CLAUDE_HTTP_PROXY=http://127.0.0.1:3128`. Прокси применяется только к процессу
-  Claude Code, остальной трафик worker’а идёт напрямую.
+  Claude Code, остальной трафик worker’а идёт напрямую. Фактический юнит на VPS:
+
+```ini
+[Unit]
+Description=GOST HTTP proxy for Claude Code
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=nobody
+ExecStart=/usr/bin/gost -L "http://127.0.0.1:3128?interface=62.171.228.183"
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl enable --now gost-claude
+systemctl is-active gost-claude
+```
+
 - Проверка: `claude --version` от `cpworker`, затем тестовая `ai_check` из UI.
+  Ожидаемо: `exit 0`, `result: OK`, в `modelUsage` — `deepseek-flash`.
 
 ### 8.6. Проверка после деплоя
 
 ```bash
-curl -fsS http://<ip>/healthz
+curl -fsS http://62.171.228.41/healthz
 systemctl is-active rompetr-web rompetr-worker nginx gost-claude
 journalctl -u rompetr-worker -n 50 --no-pager
 ```
@@ -270,6 +347,21 @@ journalctl -u rompetr-worker -n 50 --no-pager
 В браузере: вход админом, создание черновика, «AI-перевод» → задача должна
 завершиться `succeeded`, X остаться английским. После reboot сервисы должны
 подняться сами.
+
+### 8.7. Обновление уже работающего VPS
+
+```bash
+runuser -u cpapp -- bash -lc "git -C /srv/rompetr/crm pull --ff-only"
+cd /srv/rompetr/crm
+set -a; . /etc/rompetr-crm/app.env; set +a
+runuser -u cpapp -m -- /srv/rompetr/venv/bin/python -m alembic upgrade head
+systemctl restart rompetr-worker rompetr-web
+curl -fsS http://62.171.228.41/healthz
+```
+
+Миграции запускать **до** перезапуска web: новая модель может ожидать колонки,
+которых ещё нет в БД. После обновления проверить `systemctl is-active` и одну
+AI-задачу из UI.
 
 ## 9. Диагностика
 
@@ -279,7 +371,12 @@ journalctl -u rompetr-worker -n 50 --no-pager
 | `WinError 10048` | остановить старый процесс, дождаться освобождения порта |
 | Worker не берёт задачи | `WORKER_INPROCESS`, `/admin/jobs`, `var/logs/uvicorn-8000.log` |
 | `Claude Code exit 1` | `var/jobs/<job>.err.log`; чаще всего авторизация или недоступная модель |
+| `Not logged in`, `401`, `authentication_error` | проверить `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` и что `CLAUDE_CODE_OAUTH_TOKEN` пуст; открыть новый процесс worker |
+| `claude` не найден у `cpworker` | установить `/usr/local/bin/claude`, задать `HOME` и `CLAUDE_CONFIG_DIR=/var/lib/rompetr/claude` |
 | `unrecognized_model` | это предупреждение stderr; смотреть JSON-результат CLI |
+| gost не работает / не тот исходящий IP | `systemctl status gost-claude`; `curl -x http://127.0.0.1:3128 https://api.ipify.org` должен вернуть `62.171.228.183` |
+| VPS-кнопка «Открыть X с картинкой» недоступна | на VPS нет GUI и Node; X-композер запускается на Windows-машине с Chrome-профилем |
+| После обновления ошибка о missing column | миграции применить **до** перезапуска web: `alembic upgrade head` |
 | «Сгенерировать новость»: `budget_exhausted`, черновик пуст | JSON мог быть записан в `var/jobs/<public_id>/post.json`; поднять `CLAUDE_COMPOSE_BUDGET_USD`, запретить субагентов, `compose_news` имеет `max_attempts=1` |
 | Telegram длиннее 1024 после AI-перевода | Checker обязан пересчитывать длину после перевода; `run_ai_check` теперь отклоняет JSON с выходом за лимит и не применяет его |
 | Новая картинка сгенерировалась, но в черновике старая | Проверить `assets.is_primary`; новая картинка должна становиться primary, старые — `false` |

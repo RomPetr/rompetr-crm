@@ -17,9 +17,10 @@ Pixly, команда `/publish`. Теперь тот же пайплайн до
   кошельки, безопасность, AI-агенты, торговые роботы.
 - **Администратор сообщества** — модерирует черновики, управляет доступами, следит за
   очередью задач и публикациями.
-- **Гость / новый пользователь** — знакомится с сервисом, собирает черновик и картинку,
-  а публикация открывается после одобрения.
-- **Владелец проекта** — разворачивает CRM на своём VPS, подключает соцсети и Claude Code.
+- **Гость / новый пользователь** — знакомится с сервисом по гостевой квоте: черновик,
+  один поиск информации, две генерации PNG и одна публикация после одобрения.
+- **Владелец проекта** — сопровождает CRM на VPS, управляет доступами, лимитами,
+  соцсетями и подключением Claude Code.
 
 ---
 
@@ -35,7 +36,7 @@ Pixly, команда `/publish`. Теперь тот же пайплайн до
 | Публикация в VK и Telegram — ручная рутина | VK `wall.post` и Telegram `sendPhoto` публикуются из интерфейса с идемпотентностью |
 | X нельзя автоматизировать | Ручная очередь `manual_pending`, intent-ссылка и локальный Chrome-композер с картинкой |
 | Непонятно, кто и что менял | Пользователи, роли, тикеты, аудит действий и журнал публикаций |
-| Гость может натворить лишнего | Гость создаёт черновик, но публикация только после одобрения админом |
+| Гость может натворить лишнего | Гостю выдаются квоты: 1 поиск, 2 картинки и 1 публикация после одобрения; админ меняет лимиты для каждого гостя |
 | Планировщик живёт только пока открыт Claude Code | Очередь `jobs` и `scheduled_at` в БД; запуск по расписанию через CLI/worker |
 
 ---
@@ -45,16 +46,21 @@ Pixly, команда `/publish`. Теперь тот же пайплайн до
 - Регистрация с подтверждением e-mail (dev-режим пишет письма в `var/mail/`).
 - Вход, сессии в PostgreSQL, Argon2id, CSRF, rate limit, сброс пароля.
 - Админ ID `#0`, защита от удаления и смены роли триггером БД.
-- Гостевой доступ для проверки: черновик, 1 поиск информации, 2 генерации PNG и 1 публикация после одобрения. Админ задаёт лимиты на `/admin/users`.
+- Гостевой доступ для проверки: черновик, 1 поиск информации, 2 генерации PNG и 1 публикация после одобрения.
+- Админ задаёт гостю три числовых лимита на `/admin/users` и видит фактическое использование.
 - Тикеты новых пользователей в админке, одобрение доступа.
 - Черновики: источник, дата, заголовок, URL, тексты пяти площадок, `image_prompt`.
 - Чекбоксы площадок: выключенное поле не участвует в проверке, переводе и публикации.
 - AI-перевод и проверка включённых полей, метки «Переведено» / «Исправлено».
 - Генерация PNG с выбором модели, загрузка своего PNG, скачивание изображения.
 - Публикация VK и Telegram, идемпотентность, ручная очередь X.
-- Админка: пользователи, тикеты, посты, публикации, задачи.
+- Модерация прямо на странице черновика: «Одобрить» и «Отклонить» с причиной.
+- Админка: пользователи, тикеты, посты, публикации, задачи, лимиты гостей.
 - Очередь `jobs`, worker, безопасный запуск `claude -p`, логи задач.
 - Админская кнопка «Сгенерировать новость»: полный цикл от RSS до картинки.
+- Новая сгенерированная или загруженная картинка автоматически становится основной.
+- AI-задачи на VPS работают через Claude Code CLI и Anthropic-совместимый API DeepSeek;
+  исходящий трафик Claude Code при желании идёт через отдельный IP (gost).
 - Старый конвейер `/publish` с `-no_post` и MD-копией для ручного копирования.
 
 ---
@@ -63,21 +69,21 @@ Pixly, команда `/publish`. Теперь тот же пайплайн до
 
 ```text
 Браузер
-  │ HTTPS
+  │ HTTP по IP (TLS и домен — следующий этап)
   ▼
-nginx (TLS, rate limit, static, proxy)
+nginx (rate limit, static, reverse proxy)
   │ 127.0.0.1:8000
   ▼
-FastAPI + Jinja2/HTMX
+FastAPI + Jinja2 + собственный CSS/JS
   ├─ auth / sessions / CSRF
   ├─ drafts / tickets / admin
   └─ jobs в PostgreSQL
         │
         ▼
 worker
-  ├─ ai_check (Claude Code)
-  ├─ compose_news (Claude Code + WebFetch)
-  ├─ generate_image (ProxyAPI)
+  ├─ ai_check / compose_news → Claude Code CLI → DeepSeek API
+  │                          └─ опционально gost 127.0.0.1:3128 → второй IP
+  ├─ generate_image (ProxyAPI: Flux.2 Pro / GPT Image 1 mini)
   └─ publish_vk / publish_telegram
         │
         ▼
@@ -85,7 +91,7 @@ PostgreSQL + var/media + var/jobs
 ```
 
 **Стек:** Python 3.11+, FastAPI, SQLAlchemy 2, Alembic, Pydantic v2, PostgreSQL,
-Jinja2, Tailwind (собранный CSS), Argon2id, Claude Code CLI, ProxyAPI (Flux / GPT Image).
+Jinja2, собственный CSS/JS, Argon2id, Claude Code CLI, ProxyAPI (Flux / GPT Image).
 
 **Граница безопасности:** Claude Code читает и правит JSON, но не публикует. Публикацию
 выполняет детерминированный Python-код после действия пользователя или админа.
@@ -109,36 +115,60 @@ alembic upgrade head
 В dev-режиме `WORKER_INPROCESS=true`: очередь задач обрабатывается внутри веб-приложения.
 На VPS `WORKER_INPROCESS=false` и отдельный systemd-юнит `python -m webapp.worker`.
 
-Для AI-задач нужен авторизованный Claude Code. Локально можно использовать текущую сессию
-(`ANTHROPIC_AUTH_TOKEN`/`ANTHROPIC_BASE_URL`), на сервере — `CLAUDE_CODE_OAUTH_TOKEN`
-из `claude setup-token`.
+Для AI-задач нужен Claude Code CLI и токен провайдера. Локально worker берёт
+`ANTHROPIC_AUTH_TOKEN` и `ANTHROPIC_BASE_URL` из `.env`. На VPS те же переменные
+заданы в `/etc/rompetr-crm/app.env` и указывают на Anthropic-совместимый API DeepSeek:
+токен `ANTHROPIC_AUTH_TOKEN`, модель `deepseek-flash`. OAuth-токен подписки не требуется.
+Инструкция для Windows — `docs/CLAUDE-CODE-DEEPSEEK-SETUP.md`.
 
 ---
 
 ## Деплой на Linux-сервер
 
-Репозиторий рассчитан на развёртывание по проектному скиллу
-[`.claude/skills/rompetr-crm/SKILL.md`](.claude/skills/rompetr-crm/SKILL.md). Скилл
-подхватывается Claude Code автоматически и содержит проверенную последовательность
-для Debian 12: пакеты, пользователи, venv, PostgreSQL, systemd, nginx, TLS, worker
-и типовые ловушки. Хронология реального деплоя — в `docs/DEPLOY-JOURNAL.md`.
+CRM **уже развёрнута** и работает на VPS. Деплой выполнен 17–18.11.2026;
+хронология решений, ошибок и проверок — в `docs/DEPLOY-JOURNAL.md`.
 
-Коротко:
+| Параметр | Текущее состояние |
+|---|---|
+| Публичный адрес | `http://62.171.228.41` — этап без домена и TLS |
+| ОС | Debian 12, Python 3.11 |
+| База | PostgreSQL 15 (штатная версия Debian) |
+| Код | `/srv/rompetr/crm` |
+| Виртуальное окружение | `/srv/rompetr/venv` |
+| Конфигурация | `/etc/rompetr-crm/app.env`, 640 `root:cpapp` |
+| systemd | `rompetr-web`, `rompetr-worker` |
+| nginx | reverse proxy на `127.0.0.1:8000` |
+| AI | Claude Code CLI + Anthropic-совместимый API DeepSeek |
+| Второй исходящий IP | опционально через `gost` на `127.0.0.1:3128` → `62.171.228.183` |
+| Firewall | UFW: 22, 80, 443; fail2ban |
 
-1. Debian 12, Python 3.11+, PostgreSQL, nginx, systemd, git.
+Проверено: `/healthz` и `/login` отвечают, вход админом и `/admin` работают,
+AI-проверка и генерация новости завершаются, публикации VK/Telegram и ручная
+очередь X доступны.
+
+### Повторный деплой с нуля
+
+1. Debian 12; пакеты Python 3.11, PostgreSQL, nginx, systemd, git, UFW, fail2ban.
 2. Пользователи `cpapp` (web), `cpworker` (worker), группа `cpmedia`; код в
    `/srv/rompetr/crm`, venv в `/srv/rompetr/venv`.
-3. Секреты — в `/etc/rompetr-crm/app.env` (640 `root:cpapp`), каталог 750 `root:cpapp`;
-   в git файл не попадает.
-4. `python -m alembic upgrade head` под пользователем приложения.
-5. systemd-юниты `rompetr-web` (uvicorn на `127.0.0.1:8000`) и `rompetr-worker`;
-   nginx как reverse proxy; UFW 22/80/443; TLS через certbot.
-6. Проверка: `/healthz`, `/login`, вход админом, AI-проверка черновика.
+3. Секреты — в `/etc/rompetr-crm/app.env`; каталог 750 `root:cpapp`, файл 640
+   `root:cpapp`. Значения не печатать и не коммитить.
+4. Создать роль и БД PostgreSQL, выполнить `python -m alembic upgrade head`.
+5. Включить `rompetr-web` (uvicorn на `127.0.0.1:8000`) и `rompetr-worker`,
+   настроить nginx, UFW 22/80/443, fail2ban.
+6. Поставить Claude Code CLI для `cpworker`, задать `CLAUDE_BIN`,
+   `CLAUDE_CONFIG_DIR`, `HOME`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`,
+   `CLAUDE_MODEL=deepseek-flash`; при необходимости — `CLAUDE_HTTP_PROXY`.
+7. Проверить `/healthz`, `/login`, вход админом, AI-проверку и публикацию.
 
-Docker не требуется. Для AI-задач нужен Claude Code CLI, доступный сервисному
-пользователю, и переменные `ANTHROPIC_*`/`CLAUDE_*` в `app.env`. Если на сервере
-есть отдельный исходящий IP, задайте `CLAUDE_HTTP_PROXY` — прокси применится только
-к процессу Claude Code.
+Полная проверенная процедура с командами, systemd-юнитами, nginx и ловушками —
+в проектном скилле [`.claude/skills/rompetr-crm/SKILL.md`](.claude/skills/rompetr-crm/SKILL.md).
+Скилл подхватывается Claude Code автоматически; Docker не требуется.
+
+**Что ещё не сделано на текущем этапе:** домен `rompetr.ru` и TLS-сертификат,
+SMTP для реальных писем, offsite-бэкапы и мониторинг. Пока сервер работает по IP
+в режиме `APP_ENV=dev`, `COOKIE_SECURE=false`; перед публичным доменом эти
+параметры нужно переключить на production.
 
 ---
 
@@ -147,10 +177,13 @@ Docker не требуется. Для AI-задач нужен Claude Code CLI,
 ```text
 webapp/            FastAPI-приложение, модели, сервисы, шаблоны
 alembic/           миграции БД
-scripts/           git_guard, json_to_md, smoke_publish, init_db, восстановление PG
-tests/             pytest: auth, черновики, публикация, очередь, compose
-docs/              план и журнал деплоя
-.claude/           субагенты Checker/Pixly, команда publish, настройки worker
+scripts/           git_guard, json_to_md, smoke_publish, init_db, восстановление PG,
+                   check_keys, setup-deepseek-env
+tests/             pytest: auth, черновики, публикация, очередь, compose,
+                   модерация, гостевые квоты, медиа, guard
+docs/              план, журнал деплоя, инструкция по DeepSeek
+.claude/           скилл проекта, субагенты Checker/Pixly, команда publish,
+                   настройки worker
 bot.py             legacy-публикатор Telegram
 posts/             данные постов (в git не попадают)
 ```
@@ -169,17 +202,20 @@ posts/             данные постов (в git не попадают)
 - Пароли — Argon2id; сессии в БД; CSRF на всех не-GET; rate limit на вход/регистрацию.
 - Админ ID 0 защищён CHECK-ограничением, триггером и partial unique index.
 - Медиа отдаётся только автору и админу.
+- Worker работает под отдельным пользователем `cpworker`; Claude Code получает только
+  разрешённые переменные окружения, без ключей БД и соцсетей.
+- На текущем IP-этапе TLS ещё не включён, `COOKIE_SECURE=false`. Перед публичным
+  доменом обязательны HTTPS, `APP_ENV=prod` и `COOKIE_SECURE=true`.
 
 ---
 
 ## Перспективы
 
 - Домен `rompetr.ru` и TLS-сертификат; пока приложение доступно по IP.
-- Бэкапы PostgreSQL и медиа на VPS.
+- Регулярные бэкапы PostgreSQL и медиа, включая offsite-копию.
+- Мониторинг, алерты и ротация логов.
 - Роль `moderator` и разделение редактора и администратора.
-- HTMX-обновления без перезагрузки страницы.
 - SMTP-провайдер для реальных писем подтверждения.
-- Автоматическое обновление статуса задач.
 - Импорт старых постов и миграция legacy-пайплайна.
 - Публикация на любые темы, а не только DEX/DeFi.
 - Аналитика публикаций, расход API, отчёты по каналам.
@@ -190,10 +226,10 @@ posts/             данные постов (в git не попадают)
 
 ## Документация
 
-- `docs/CRM-PLAN.md` — план и чек-лист этапов.
-- `docs/DEPLOY-JOURNAL.md` — хронология решений и чек-лист деплоя на VPS.
-- `.claude/plans/crm-web-platform.yaml` — машинная спецификация.
-- `.claude/skills/rompetr-crm/SKILL.md` — скилл для Claude Code: структура, запуск, правки, проверки и публикация.
+- `docs/CRM-PLAN.md` — исторический план и чек-лист этапов; текущее состояние — в этом README и журнале деплоя.
+- `docs/DEPLOY-JOURNAL.md` — хронология решений, фактический деплой и проверки на VPS.
+- `.claude/plans/crm-web-platform.yaml` — машинная спецификация проекта.
+- `.claude/skills/rompetr-crm/SKILL.md` — скилл для Claude Code: структура, запуск, правки, проверки, публикация и проверенный деплой на Debian 12.
 - `docs/CLAUDE-CODE-DEEPSEEK-SETUP.md` — переход Claude Code на API DeepSeek на Windows 10.
 - `PIPELINE.md`, `PUBLISH-COMMAND.md` — старый конвейер Content Plant.
 
@@ -201,10 +237,19 @@ posts/             данные постов (в git не попадают)
 
 ## Статус
 
-CRM развёрнута на VPS Debian 12: systemd-юниты `rompetr-web` и `rompetr-worker`,
-nginx, PostgreSQL, UFW и fail2ban. Публичный адрес этапа — `http://62.171.228.41`;
-вход админом и `/admin` проверены. Локально: 47 автотестов, `ruff`, миграции,
-ручные сценарии входа, черновиков, AI-перевода, изображений и публикаций.
+Проект развёрнут и работает на VPS: Debian 12, PostgreSQL 15, nginx, systemd,
+UFW и fail2ban. Действующий адрес этапа — **http://62.171.228.41**; вход админом,
+`/admin`, модерация, гостевые квоты и AI-задачи проверены на сервере.
 
-Следующие шаги: переключить домен и выпустить TLS, добавить
-`CLAUDE_CODE_OAUTH_TOKEN` для AI-задач, настроить SMTP и бэкапы.
+- **Тесты:** 47 автотестов (`pytest`) и `ruff` — зелёные.
+- **База:** миграции Alembic применены локально и на VPS.
+- **Проверенные сценарии:** регистрация и вход, черновики, модерация,
+  AI-перевод и «Сгенерировать новость», ProxyAPI (Flux.2 Pro / GPT Image 1 mini),
+  публикация VK и Telegram, ручная очередь X, гостевые лимиты и их изменение админом.
+- **AI на VPS:** Claude Code CLI + API DeepSeek (`deepseek-flash`), отдельный
+  исходящий IP через gost настроен опционально.
+- **Ограничение X:** автоматическая публикация через API не используется; текст и
+  картинка готовятся в локальном Chrome-композере, финальное нажатие Post — вручную.
+
+Следующие шаги: переключить домен `rompetr.ru` и выпустить TLS, включить
+production-режим cookie, настроить SMTP, резервное копирование и мониторинг.
