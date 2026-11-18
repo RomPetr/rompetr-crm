@@ -333,6 +333,21 @@ EMAIL_MODE=dev            # до настройки SMTP; письма в var/ma
 - Обновление CLI: `install -m 0755 <новый бинарник> /usr/local/bin/claude`
   (обновление под `rp` не заменит системную копию).
 
+### 2026-11-18 — Claude Code через второй IP (gost)
+
+- `gost-claude.service` (enabled, active) слушает `127.0.0.1:3128` и выпускает
+  соединения через дополнительный адрес `62.171.228.183`:
+  `/usr/bin/gost -L "http://127.0.0.1:3128?interface=62.171.228.183"`.
+- В приложение добавлена настройка `CLAUDE_HTTP_PROXY`; `claude_runner` подставляет
+  `HTTP_PROXY`/`HTTPS_PROXY` (в верхнем и нижнем регистре) и `NO_PROXY=127.0.0.1,localhost,::1`
+  **только в окружение процесса Claude Code**, не затрагивая остальной трафик worker’а.
+- В `/etc/rompetr-crm/app.env` добавлено `CLAUDE_HTTP_PROXY=http://127.0.0.1:3128`.
+- Проверка egress: прямой `curl` → `62.171.228.41`, через прокси → `62.171.228.183`.
+- Проверка, что CLI действительно использует прокси: с мёртвым прокси
+  (`127.0.0.1:9`) запуск завершился таймаутом, с gost — `exit 0`, `result: OK`.
+- `gost-claude`, `rompetr-worker`, `rompetr-web` — active; worker получил
+  `CLAUDE_HTTP_PROXY`; `/healthz` → 200.
+
 Осталось:
 
 - [ ] Переключить `rompetr.ru` с 185.154.20.52 на 62.171.228.41 и выпустить TLS.
