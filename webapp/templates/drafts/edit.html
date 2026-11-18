@@ -9,7 +9,7 @@
 {% endif %}
 <div class="head-row">
   <h1>{{ post.title or "Без названия" }}</h1>
-  <span class="badge">{{ post.status }}</span>
+  <span class="badge status-{{ post.status }}">{{ post.status }}</span>
 </div>
 {% if message == "saved" %}<p class="ok">Сохранено.</p>{% endif %}
 {% if message == "check" %}<p class="ok">Проверка пройдена.</p>{% endif %}
