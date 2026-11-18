@@ -3,11 +3,28 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from webapp.config import Settings
 from webapp.models.content import Publication
 from webapp.models.system import Job
+from webapp.models.user import User
 
 COUNTED_JOB_STATUSES = ("queued", "running", "succeeded")
 COUNTED_PUBLICATION_STATUSES = ("published", "manual_pending")
+
+
+def effective_guest_limits(user: User, settings: Settings) -> tuple[int, int]:
+    """Per-user override, falling back to the global guest limits."""
+    compose = (
+        user.guest_compose_limit
+        if user.guest_compose_limit is not None
+        else settings.guest_compose_limit
+    )
+    image = (
+        user.guest_image_limit
+        if user.guest_image_limit is not None
+        else settings.guest_image_limit
+    )
+    return max(0, compose), max(0, image)
 
 
 def user_job_count(db: Session, user_id: int, job_type: str) -> int:

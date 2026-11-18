@@ -49,8 +49,7 @@ def _usage(db: Session, user: User, post: Post) -> dict:
     if user.role == "guest":
         compose_used = usage_service.user_job_count(db, user.id, "compose_news")
         image_used = usage_service.user_job_count(db, user.id, "generate_image")
-        compose_limit = settings.guest_compose_limit
-        image_limit = settings.guest_image_limit
+        compose_limit, image_limit = usage_service.effective_guest_limits(user, settings)
     else:
         compose_used = usage_service.post_job_count(db, post.id, "compose_news")
         image_used = usage_service.post_job_count(db, post.id, "generate_image")
@@ -390,11 +389,12 @@ def enqueue_generate_image(
         raise HTTPException(status_code=400, detail="Сначала включите image_prompt")
     if user.role == "guest":
         settings = get_settings()
+        _, image_limit = usage_service.effective_guest_limits(user, settings)
         used = usage_service.user_job_count(db, user.id, "generate_image")
-        if used >= settings.guest_image_limit:
+        if used >= image_limit:
             raise HTTPException(
                 status_code=400,
-                detail=f"Гостевой лимит генерации изображений исчерпан ({settings.guest_image_limit}).",
+                detail=f"Гостевой лимит генерации изображений исчерпан ({image_limit}).",
             )
     selected = model if model in IMAGE_MODELS else IMAGE_MODELS[0]
     job = jobs.enqueue(
@@ -451,11 +451,12 @@ def enqueue_compose_news(
         raise HTTPException(status_code=403)
     if user.role == "guest":
         settings = get_settings()
+        compose_limit, _ = usage_service.effective_guest_limits(user, settings)
         used = usage_service.user_job_count(db, user.id, "compose_news")
-        if used >= settings.guest_compose_limit:
+        if used >= compose_limit:
             raise HTTPException(
                 status_code=400,
-                detail=f"Гостевой лимит поиска информации исчерпан ({settings.guest_compose_limit}).",
+                detail=f"Гостевой лимит поиска информации исчерпан ({compose_limit}).",
             )
     selected = model if model in IMAGE_MODELS else IMAGE_MODELS[0]
     job = jobs.enqueue(

@@ -11,6 +11,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from webapp.config import get_settings
 from webapp.db import get_db
 from webapp.deps import csrf_protect, require_admin
 from webapp.models.content import Post
@@ -19,6 +20,7 @@ from webapp.models.system import Job
 from webapp.models.user import User
 from webapp.services import audit, sessions
 from webapp.services import posts as posts_service
+from webapp.services import usage as usage_service
 from webapp.templating import render
 
 router = APIRouter(
@@ -60,11 +62,24 @@ def users_list(
     if status in allowed:
         stmt = stmt.where(User.status == status)
     users = db.execute(stmt).scalars().all()
+    settings = get_settings()
+    guest_limits = {}
+    for user in users:
+        if user.role != "guest":
+            continue
+        compose_limit, image_limit = usage_service.effective_guest_limits(user, settings)
+        guest_limits[user.id] = {
+            "compose_limit": compose_limit,
+            "image_limit": image_limit,
+            "compose_used": usage_service.user_job_count(db, user.id, "compose_news"),
+            "image_used": usage_service.user_job_count(db, user.id, "generate_image"),
+        }
     return render(
         request,
         "admin/users.html",
         admin=admin,
         users=users,
+        guest_limits=guest_limits,
         status_filter=status if status in allowed else "",
     )
 
@@ -137,6 +152,40 @@ def change_role(
     )
     db.commit()
     return RedirectResponse("/admin/users", status_code=303)
+
+
+@router.post("/users/{user_id}/limits/{kind}")
+def grant_guest_limit(
+    user_id: int,
+    kind: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if kind not in {"compose", "image"}:
+        raise HTTPException(status_code=400, detail="Неизвестный тип лимита")
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404)
+    if user.id == 0 or user.role != "guest":
+        raise HTTPException(status_code=400, detail="Лимиты доступны только для guest")
+    settings = get_settings()
+    compose_limit, image_limit = usage_service.effective_guest_limits(user, settings)
+    if kind == "compose":
+        user.guest_compose_limit = compose_limit + 1
+        new_limit = user.guest_compose_limit
+    else:
+        user.guest_image_limit = image_limit + 1
+        new_limit = user.guest_image_limit
+    audit.log_action(
+        db,
+        "admin.guest_limit_granted",
+        actor_id=admin.id,
+        entity_type="user",
+        entity_id=str(user.id),
+        meta={"kind": kind, "limit": new_limit},
+    )
+    db.commit()
+    return RedirectResponse("/admin/users?ok=limits", status_code=303)
 
 
 @router.post("/users/{user_id}/revoke-sessions")

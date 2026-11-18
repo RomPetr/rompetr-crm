@@ -2,12 +2,13 @@
 {% block title %}Пользователи — админка{% endblock %}
 {% block content %}
 <h1>Пользователи</h1>
+{% if request.query_params.get("ok") == "limits" %}<p class="ok">Гостевые лимиты обновлены.</p>{% endif %}
 {% if status_filter %}<p class="muted">Фильтр: статус «{{ status_filter }}». <a href="/admin/users">Показать всех</a></p>{% endif %}
 <p class="muted">ID 0 — неизменяемый администратор. Новые пользователи приходят как guest и ждут одобрения. Роли: guest, user, admin; роль moderator появится позже.</p>
 <div class="table-wrap">
 <table class="table">
   <thead>
-    <tr><th>ID</th><th>Имя / логин</th><th>E-mail</th><th>Роль</th><th>Статус</th><th>E-mail подтверждён</th><th>Действия</th></tr>
+    <tr><th>ID</th><th>Имя / логин</th><th>E-mail</th><th>Роль</th><th>Статус</th><th>E-mail подтверждён</th><th>Лимиты гостя</th><th>Действия</th></tr>
   </thead>
   <tbody>
   {% for u in users %}
@@ -18,6 +19,24 @@
       <td>{{ u.role }}</td>
       <td>{{ u.status }}</td>
       <td>{{ "да" if u.email_verified_at else "нет" }}</td>
+      <td>
+        {% if u.role == 'guest' %}
+          {% set limits = guest_limits[u.id] %}
+          <div class="muted">Поиск: {{ limits.compose_used }}/{{ limits.compose_limit }} · Картинки: {{ limits.image_used }}/{{ limits.image_limit }}</div>
+          <div class="actions-cell">
+            <form method="post" action="/admin/users/{{ u.id }}/limits/compose">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="button small secondary" type="submit">+1 поиск</button>
+            </form>
+            <form method="post" action="/admin/users/{{ u.id }}/limits/image">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="button small secondary" type="submit">+1 картинка</button>
+            </form>
+          </div>
+        {% else %}
+          <span class="muted">—</span>
+        {% endif %}
+      </td>
       <td class="actions-cell">
         {% if u.id != 0 %}
           {% if u.role == 'guest' %}

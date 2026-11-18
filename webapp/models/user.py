@@ -49,6 +49,8 @@ class User(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     failed_login_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    guest_compose_limit: Mapped[int | None] = mapped_column(Integer)
+    guest_image_limit: Mapped[int | None] = mapped_column(Integer)
 
     sessions: Mapped[list[UserSession]] = relationship(back_populates="user")
 

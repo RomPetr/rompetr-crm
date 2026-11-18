@@ -78,7 +78,7 @@ cd C:\Users\rp\course\content
 - **Шаблон:** `webapp/templates/...`; JS только внешними файлами в `webapp/static/js/`
   из-за CSP `script-src 'self'`.
 - **Тест:** `tests/test_*.py`. Для новых веток — минимальный тест на поведение.
-- **Права:** admin — модерация и публикация; user — свои черновики; guest — без публикации, но с квотой на проверку: 1 поиск информации (`compose_news`) и 2 генерации PNG (`generate_image`) суммарно по всем своим черновикам. Лимиты задаются `GUEST_COMPOSE_LIMIT` и `GUEST_IMAGE_LIMIT`.
+- **Права:** admin — модерация и публикация; user — свои черновики; guest — без публикации, но с квотой на проверку: 1 поиск информации (`compose_news`) и 2 генерации PNG (`generate_image`) суммарно по всем своим черновикам. Лимиты задаются `GUEST_COMPOSE_LIMIT` и `GUEST_IMAGE_LIMIT`; админ на `/admin/users` видит использование и добавляет попытку кнопками «+1 поиск»/«+1 картинка» (персональные `users.guest_compose_limit`/`guest_image_limit`).
 
 Чекбоксы площадок и `image_prompt` хранятся в `posts.platforms_enabled` и
 `posts.image_enabled`. Выключенное поле не участвует в проверке, AI-переводе и
