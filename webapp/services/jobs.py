@@ -72,6 +72,7 @@ def enqueue(
         post_version=post.version,
         payload=payload or {},
         idempotency_key=key,
+        max_attempts=1 if job_type == "compose_news" else 3,
         created_by=created_by,
     )
     db.add(job)

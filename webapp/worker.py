@@ -170,10 +170,12 @@ platforms: telegram, instagram, x, tiktok, vk, у каждой content.
 - TikTok 50–120 слов включая ссылку, 3–5 хэштегов.
 - X до 280 символов включая ссылку.
 - Факты, цифры и даты — только из источника. Без обещаний доходности и секретов.
-Правь файл через Write. В ответе верни короткий PASS и заголовок новости."""
+Правь файл через Write. Не запускай субагентов и Bash: длины текстов считай сам.
+Запиши готовый JSON один раз и заверши работу. В ответе верни короткий PASS и заголовок новости."""
 
 
 def run_compose_news(db: Session, job: Job) -> dict:
+    settings = get_settings()
     post = db.get(Post, job.post_id) if job.post_id else None
     if post is None:
         raise RuntimeError("Пост не найден")
@@ -186,6 +188,8 @@ def run_compose_news(db: Session, job: Job) -> dict:
         job.public_id,
         timeout_sec=1200,
         allowed_tools=("Read", "Write", "WebFetch", "WebSearch"),
+        max_turns=settings.claude_compose_max_turns,
+        max_budget_usd=settings.claude_compose_budget_usd,
     )
     if result.timed_out:
         raise RuntimeError(f"Генерация новости не уложилась в таймаут. Лог: {result.log_path}")

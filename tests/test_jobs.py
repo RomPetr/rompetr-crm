@@ -200,7 +200,8 @@ def test_compose_news_job(monkeypatch):
 
     from webapp.config import ROOT
 
-    def fake_run(prompt, job_id, timeout_sec=None, allowed_tools=None):
+    def fake_run(prompt, job_id, timeout_sec=None, allowed_tools=None, **kwargs):
+        assert kwargs["max_budget_usd"] >= 6
         path = ROOT / "var" / "jobs" / job_id / "post.json"
         data = {
             "schema_version": "crypto-ai-social-content/v1",
@@ -230,6 +231,7 @@ def test_compose_news_job(monkeypatch):
         job = jobs.enqueue(
             db, "compose_news", post, created_by=0, payload={"model": "gpt-image-1-mini"}
         )
+        assert job.max_attempts == 1
         db.commit()
         process(db, job)
         db.refresh(job)

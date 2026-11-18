@@ -48,6 +48,8 @@ def run(
     job_id: str,
     timeout_sec: int | None = None,
     allowed_tools: tuple[str, ...] | None = None,
+    max_turns: int | None = None,
+    max_budget_usd: float | None = None,
 ) -> RunResult:
     settings = get_settings()
     timeout = timeout_sec or settings.claude_timeout_sec
@@ -70,10 +72,12 @@ def run(
         "Bash(curl *)",
         "Bash(wget *)",
         "Bash(git push *)",
+        "Task",
+        "Agent",
         "--max-turns",
-        str(settings.claude_max_turns),
+        str(max_turns or settings.claude_max_turns),
         "--max-budget-usd",
-        str(settings.claude_max_budget_usd),
+        str(max_budget_usd or settings.claude_max_budget_usd),
     ]
     if settings.claude_model:
         command += ["--model", settings.claude_model]

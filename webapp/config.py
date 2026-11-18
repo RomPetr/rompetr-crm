@@ -82,6 +82,8 @@ class Settings(BaseSettings):
     claude_max_concurrency: int = 1
     claude_max_turns: int = 20
     claude_max_budget_usd: float = 2.0
+    claude_compose_max_turns: int = 30
+    claude_compose_budget_usd: float = 6.0
 
     worker_poll_sec: int = 2
     worker_id: str = "local-1"
