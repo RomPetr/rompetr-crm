@@ -141,8 +141,44 @@ h2 { font-size: 20px; margin: 0 0 8px; }
   color: var(--muted);
   font-size: 13px;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+.footer-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trust-seal {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+
+.trust-seal:hover { text-decoration: none; }
+
+.trust-seal img {
+  display: block;
+  width: 124px;
+  height: 32px;
+}
+
+.auth-trust {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
   flex-wrap: wrap;
 }
 

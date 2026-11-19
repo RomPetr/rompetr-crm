@@ -78,7 +78,7 @@ DENY_FILES = {
     ".claude/scheduled_tasks.json",
 }
 
-ALLOW_IMAGE_PREFIXES = ("docs/images/",)
+ALLOW_IMAGE_PREFIXES = ("docs/images/", "webapp/static/img/trust/")
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".gif")
 
 DENY_SUFFIXES = (
@@ -164,7 +164,7 @@ def classify(path: str) -> tuple[bool, str]:
         if lower.startswith(prefix):
             return False, f"запрещённый каталог {prefix}"
     if lower.startswith(ALLOW_IMAGE_PREFIXES) and lower.endswith(IMAGE_SUFFIXES):
-        return True, "изображение документации"
+        return True, "изображение документации или статики"
     if lower.endswith(DENY_SUFFIXES):
         return False, "бинарный или служебный файл"
     if lower.startswith(".env") and lower != ".env.example":

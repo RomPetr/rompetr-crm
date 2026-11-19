@@ -548,20 +548,36 @@ $//'`.
   `succeeded` с третьей попытки (первые две — `unrecognized_model`), вердикт
   `PASS`, пост v3.
 
+### 2026-11-19 — печать PositiveSSL
+
+- В подвал `base.html` и на страницы входа, регистрации, сброса и восстановления
+  пароля добавлена печать PositiveSSL (124×32). PNG хранится локально в
+  `webapp/static/img/trust/positivessl_trust_seal_sm_124x32.png`.
+- Сторонний скрипт TrustLogo не подключается: CSP `script-src 'self'` и
+  `img-src 'self' data:`; печать оформлена статичной ссылкой на positivessl.com.
+- Live-проверка TrustLogo для `rompetr.autos` отвечает «This website uses a
+  Sectigo SSL certificate»; сам сертификат выдан GoGetSSL, цепочка ведёт к
+  Sectigo Public Server Authentication Root R46.
+- `git_guard` разрешает изображения только из `docs/images/` и
+  `webapp/static/img/trust/`; тест guard обновлён.
+- Проверить на VPS: `git pull`, `systemctl restart rompetr-web`, затем `/` и
+  `/login` содержат `positivessl_trust_seal_sm_124x32.png`, а
+  `/static/img/trust/...` отдаёт 200 `image/png`.
+
 ---
 
 ## 3. Открытые вопросы
 
-| ID | Вопрос | Текущее допущение |
-|---|---|---|
-| Q1 | SMTP-провайдер и ADMIN_EMAIL | dev-режим, письма в `var/mail/` |
-| Q2 | DNS и способ сертификата | Закрыт: DNS на `.183`, сертификат GoGetSSL до 04.06.2027 |
-| Q3 | VPS: IP, ресурсы, SSH | 2 vCPU / 4 ГБ / 40 ГБ |
-| Q4 | Правит ли гость черновик после отправки | Нет |
-| Q5 | Кто публикует | user — свой approved; guest — 1 публикация после одобрения |
-| Q6 | Модель Claude для worker | `deepseek-flash` через Anthropic-совместимый endpoint |
-| Q7 | Импорт старых JSON | Оставить на диске |
-| Q8 | Offsite-бэкапы | Backblaze B2 через restic |
+| ID  | Вопрос                                  | Текущее допущение                                          |
+| --- | --------------------------------------- | ---------------------------------------------------------- |
+| Q1  | SMTP-провайдер и ADMIN_EMAIL            | dev-режим, письма в `var/mail/`                            |
+| Q2  | DNS и способ сертификата                | Закрыт: DNS на `.183`, сертификат GoGetSSL до 04.06.2027   |
+| Q3  | VPS: IP, ресурсы, SSH                   | 2 vCPU / 4 ГБ / 40 ГБ                                      |
+| Q4  | Правит ли гость черновик после отправки | Нет                                                        |
+| Q5  | Кто публикует                           | user — свой approved; guest — 1 публикация после одобрения |
+| Q6  | Модель Claude для worker                | `deepseek-flash` через Anthropic-совместимый endpoint      |
+| Q7  | Импорт старых JSON                      | Оставить на диске                                          |
+| Q8  | Offsite-бэкапы                          | Backblaze B2 через restic                                  |
 
 ---
 

@@ -8,6 +8,7 @@ backups/
 *.jpeg
 *.webp
 *.gif
+!webapp/static/img/trust/*.png
 *.pdf
 *.zip
 *.sqlite3
