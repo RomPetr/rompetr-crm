@@ -135,14 +135,14 @@ Remote: `https://github.com/RomPetr/rompetr-crm` (публичный, ветка
 
 | Параметр | Значение |
 |---|---|
-| Адрес | `https://rompetr.autos` (DNS и TLS на `.183`; HTTP → 301) |
+| Адрес | `https://rompetr.autos` (DNS и TLS на `.69`; HTTP → 301) |
 | ОС | Debian 12, Python 3.11 |
 | База | PostgreSQL 15 |
 | Код / venv | `/srv/rompetr/crm` / `/srv/rompetr/venv` |
 | Конфиг | `/etc/rompetr-crm/app.env` (640 `root:cpapp`) |
 | Сервисы | `rompetr-web`, `rompetr-worker`, `nginx`, `gost-claude`, `xray` |
-| Сеть | HTTP → 301 на HTTPS; nginx HTTPS `.183:443`; xray Reality `.41:443` |
-| AI | Claude Code CLI + DeepSeek, `CLAUDE_HTTP_PROXY` → gost → `62.171.228.183` |
+| Сеть | HTTP → 301 на HTTPS; nginx HTTPS `.69:443`; xray Reality `.41:443` |
+| AI | Claude Code CLI + DeepSeek, `CLAUDE_HTTP_PROXY` → gost → `85.136.181.69` |
 
 Хронология фактического деплоя, исправленных ошибок и проверок —
 в `docs/DEPLOY-JOURNAL.md`. Ниже — воспроизводимая процедура для чистого сервера.
@@ -262,9 +262,11 @@ systemctl enable --now rompetr-web rompetr-worker
 На сервере два IP:
 
 - `62.171.228.41` — xray Reality на `:443`, nginx HTTP на `:80`;
-- `62.171.228.183` — nginx HTTPS на `:443`, сертификат GoGetSSL.
+- `85.136.181.69` — nginx HTTPS на `:443`, сертификат GoGetSSL.
 
-DNS указывает на `.183`, публичный адрес — `https://rompetr.autos`.
+DNS указывает на `.69`, публичный адрес — `https://rompetr.autos`. Прежний
+`.183` удалён провайдером; если nginx снова пытается забиндиться на него,
+`nginx -t` падает с `Cannot assign requested address`.
 Сертификат GoGetSSL установлен; HTTP-сервер отдаёт `301` на HTTPS.
 
 HTTP-сервер (редирект):
@@ -290,7 +292,7 @@ HTTPS-сервер:
 
 ```nginx
 server {
-    listen 62.171.228.183:443 ssl http2;
+    listen 85.136.181.69:443 ssl http2;
     server_name rompetr.autos www.rompetr.autos;
     client_max_body_size 12m;
 
@@ -365,7 +367,7 @@ Wants=network-online.target
 
 [Service]
 User=nobody
-ExecStart=/usr/bin/gost -L "http://127.0.0.1:3128?interface=62.171.228.183"
+ExecStart=/usr/bin/gost -L "http://127.0.0.1:3128?interface=85.136.181.69"
 Restart=on-failure
 RestartSec=5
 
@@ -421,11 +423,12 @@ AI-задачу из UI.
 | `Not logged in`, `401`, `authentication_error` | проверить `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` и что `CLAUDE_CODE_OAUTH_TOKEN` пуст; открыть новый процесс worker |
 | `claude` не найден у `cpworker` | установить `/usr/local/bin/claude`, задать `HOME` и `CLAUDE_CONFIG_DIR=/var/lib/rompetr/claude` |
 | `unrecognized_model` | это предупреждение stderr; смотреть JSON-результат CLI |
-| gost не работает / не тот исходящий IP | `systemctl status gost-claude`; `curl -x http://127.0.0.1:3128 https://api.ipify.org` должен вернуть `62.171.228.183` |
+| gost не работает / не тот исходящий IP | `systemctl status gost-claude`; `curl -x http://127.0.0.1:3128 https://api.ipify.org` должен вернуть `85.136.181.69` |
 | VPS-кнопка «Открыть X с картинкой» недоступна | на VPS нет GUI и Node; X-композер запускается на Windows-машине с Chrome-профилем |
 | После обновления ошибка о missing column | миграции применить **до** перезапуска web: `alembic upgrade head` |
-| nginx не стартует: `bind() to 0.0.0.0:443 failed` | порт занят xray; xray должен слушать `62.171.228.41:443`, nginx — `62.171.228.183:443` |
-| `https://rompetr.autos` попадает в xray / TLS alert | DNS указывает на `.41`; A/AAAA должны указывать на `62.171.228.183` |
+| nginx не стартует: `bind() to 0.0.0.0:443 failed` | порт занят xray; xray должен слушать `62.171.228.41:443`, nginx — `85.136.181.69:443` |
+| `nginx -t`: `bind() ... Cannot assign requested address` | `listen` указывает на IP, которого нет на интерфейсе; сверить с `ip -brief addr show ens18` |
+| `https://rompetr.autos` попадает в xray / TLS alert | DNS указывает на `.41`; A/AAAA должны указывать на `85.136.181.69` |
 | «Сгенерировать новость»: `budget_exhausted`, черновик пуст | JSON мог быть записан в `var/jobs/<public_id>/post.json`; поднять `CLAUDE_COMPOSE_BUDGET_USD`, запретить субагентов, `compose_news` имеет `max_attempts=1` |
 | Telegram длиннее 1024 после AI-перевода | Checker обязан пересчитывать длину после перевода; `run_ai_check` теперь отклоняет JSON с выходом за лимит и не применяет его |
 | Новая картинка сгенерировалась, но в черновике старая | Проверить `assets.is_primary`; новая картинка должна становиться primary, старые — `false` |

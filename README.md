@@ -138,17 +138,17 @@ CRM **уже развёрнута** и работает на VPS. Деплой �
 
 | Параметр | Текущее состояние |
 |---|---|
-| Публичный адрес | `https://rompetr.autos` (DNS и TLS на `62.171.228.183`; HTTP → 301) |
+| Публичный адрес | `https://rompetr.autos` (DNS и TLS на `85.136.181.69`; HTTP → 301) |
 | ОС | Debian 12, Python 3.11 |
 | База | PostgreSQL 15 (штатная версия Debian) |
 | Код | `/srv/rompetr/crm` |
 | Виртуальное окружение | `/srv/rompetr/venv` |
 | Конфигурация | `/etc/rompetr-crm/app.env`, 640 `root:cpapp` |
 | systemd | `rompetr-web`, `rompetr-worker` |
-| nginx | reverse proxy на `127.0.0.1:8000`; HTTP → HTTPS redirect; HTTPS — на `.183` |
+| nginx | reverse proxy на `127.0.0.1:8000`; HTTP → HTTPS redirect; HTTPS — на `.69` |
 | VPN | xray Reality на `62.171.228.41:443`, клиенты не меняются |
 | AI | Claude Code CLI + Anthropic-совместимый API DeepSeek |
-| Второй IP | `62.171.228.183`: HTTPS для сайта и опционально `gost` для Claude Code |
+| Второй IP | `85.136.181.69`: HTTPS для сайта и опционально `gost` для Claude Code |
 | Firewall | UFW: 22, 80, 443; fail2ban |
 
 Проверено: `/healthz` и `/login` отвечают, вход админом и `/admin` работают,
@@ -250,7 +250,7 @@ posts/             данные постов (в git не попадают)
 
 Проект развёрнут и работает на VPS: Debian 12, PostgreSQL 15, nginx, systemd,
 UFW и fail2ban. Действующий адрес — **https://rompetr.autos**: DNS и TLS на
-`62.171.228.183`, HTTP редиректит на HTTPS, включены `APP_ENV=prod` и
+`85.136.181.69`, HTTP редиректит на HTTPS, включены `APP_ENV=prod` и
 `COOKIE_SECURE=true`. Xray Reality остаётся на `.41:443`, VPN-клиенты не меняются.
 Вход админом, `/admin`, модерация, гостевые квоты и AI-задачи проверены.
 
