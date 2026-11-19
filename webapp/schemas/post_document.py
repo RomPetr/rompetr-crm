@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import date
 
-from pydantic import BaseModel, HttpUrl, field_validator
+from pydantic import BaseModel, HttpUrl, field_validator, model_validator
 
 PUBLISHERS = {"The Block", "The Defiant", "Blockworks", "CoinDesk", "Decrypt"}
 PUBLISHER_HOMEPAGES = {
@@ -52,6 +52,14 @@ class Source(BaseModel):
 
 class PlatformText(BaseModel):
     content: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_plain_text(cls, data: object) -> object:
+        """Принять и строку, и {"content": ...}: модели иногда пишут площадку строкой."""
+        if isinstance(data, str):
+            return {"content": data}
+        return data
 
 
 class Platforms(BaseModel):

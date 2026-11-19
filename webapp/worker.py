@@ -185,7 +185,8 @@ def _compose_prompt(path: Path) -> str:
 schema_version "crypto-ai-social-content/v1";
 source: title, url полной статьи, published_at YYYY-MM-DD, publisher одно из The Block, The Defiant, Blockworks, CoinDesk, Decrypt;
 image_prompt: английский, 2-4 предложения, без текста/логотипов/людей;
-platforms: telegram, instagram, x, tiktok, vk, у каждой content.
+platforms: объект с ключами telegram, instagram, x, tiktok, vk; значение каждой площадки — объект {{"content": "текст"}}, например:
+"platforms": {{"telegram": {{"content": "…"}}, "instagram": {{"content": "…"}}, "x": {{"content": "…"}}, "tiktok": {{"content": "…"}}, "vk": {{"content": "…"}}}}.
 
 Правила текстов:
 - русский для telegram, vk, instagram, tiktok; x только английский.
