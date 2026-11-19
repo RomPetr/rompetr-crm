@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import uuid
+from pathlib import Path
 
 from PIL import Image
 
@@ -85,6 +86,13 @@ def test_x_manual_actions(client, monkeypatch):
 
         return Dummy()
 
+    real_exists = Path.exists
+
+    def fake_exists(self):
+        return True if self.name == "x_compose.cjs" else real_exists(self)
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+    monkeypatch.setattr("webapp.routers.admin.shutil.which", lambda _: "/usr/bin/node")
     monkeypatch.setattr("webapp.routers.admin.subprocess.Popen", fake_popen)
     opened = client.post(
         f"/admin/publications/{publication_id}/x-compose",
