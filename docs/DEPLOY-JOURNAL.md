@@ -560,9 +560,9 @@ $//'`.
   Sectigo Public Server Authentication Root R46.
 - `git_guard` разрешает изображения только из `docs/images/` и
   `webapp/static/img/trust/`; тест guard обновлён.
-- Проверить на VPS: `git pull`, `systemctl restart rompetr-web`, затем `/` и
-  `/login` содержат `positivessl_trust_seal_sm_124x32.png`, а
-  `/static/img/trust/...` отдаёт 200 `image/png`.
+- Развёрнуто на VPS 19.11.2026: `git pull` до `4f8f1ac`, `systemctl restart
+  rompetr-web`; `/`, `/login` и `/register` содержат печать, статика отдаёт
+  200 `image/png` (2260 байт), CSP остался прежним.
 
 ---
 
