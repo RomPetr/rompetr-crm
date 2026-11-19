@@ -70,18 +70,28 @@ def _usage(db: Session, user: User, post: Post) -> dict:
     }
 
 
-@router.get("/drafts")
-def list_drafts(request: Request, db: Session = Depends(get_db)):
+def _list_posts(request: Request, db: Session, *, archived: bool):
     user: User = request.state.user
     stmt = (
         select(Post, User)
         .join(User, User.id == Post.author_id)
+        .where(Post.status == "archived" if archived else Post.status != "archived")
         .order_by(Post.updated_at.desc())
     )
     if user.role != "admin":
         stmt = stmt.where(Post.author_id == user.id)
     items = db.execute(stmt).all()
-    return render(request, "drafts/list.html", items=items)
+    return render(request, "drafts/list.html", items=items, archive=archived)
+
+
+@router.get("/drafts")
+def list_drafts(request: Request, db: Session = Depends(get_db)):
+    return _list_posts(request, db, archived=False)
+
+
+@router.get("/archive")
+def list_archive(request: Request, db: Session = Depends(get_db)):
+    return _list_posts(request, db, archived=True)
 
 
 @router.get("/drafts/new")
@@ -421,7 +431,7 @@ def archive_draft(post_id: int, request: Request, db: Session = Depends(get_db))
     post.status = "archived"
     audit.log_action(db, "post.archived", actor_id=user.id, entity_type="post", entity_id=str(post.id))
     db.commit()
-    return RedirectResponse("/drafts", status_code=303)
+    return RedirectResponse("/archive", status_code=303)
 
 
 @router.post("/drafts/{post_id}/ai-check")

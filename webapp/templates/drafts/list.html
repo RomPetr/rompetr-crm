@@ -1,11 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Черновики{% endblock %}
+{% block title %}{% if archive %}Архив{% else %}Черновики{% endif %}{% endblock %}
 {% block content %}
 <div class="head-row">
-  <h1>Черновики</h1>
-  <a class="button" href="/drafts/new">Новый черновик</a>
+  <h1>{% if archive %}Архив{% else %}Черновики{% endif %}</h1>
+  {% if not archive %}<a class="button" href="/drafts/new">Новый черновик</a>{% endif %}
 </div>
-<p class="muted">Статус «pending_review» означает, что черновик ждёт подтверждения администратора.</p>
+<p class="muted">
+  {% if archive %}
+    Посты, перемещённые в архив. Они не показываются в списке черновиков.
+  {% else %}
+    Статус «pending_review» означает, что черновик ждёт подтверждения администратора.
+  {% endif %}
+</p>
 <div class="table-wrap">
 <table class="table">
   <thead>
@@ -49,7 +55,7 @@
       {% endif %}
     </tr>
   {% else %}
-    <tr><td colspan="{{ 6 if user and user.role == 'admin' else 4 }}" class="muted">Черновиков пока нет.</td></tr>
+    <tr><td colspan="{{ 6 if user and user.role == 'admin' else 4 }}" class="muted">{% if archive %}В архиве пока нет постов.{% else %}Черновиков пока нет.{% endif %}</td></tr>
   {% endfor %}
   </tbody>
 </table>

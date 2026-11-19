@@ -260,6 +260,57 @@ def test_admin_sees_author_and_moderates_from_drafts(client):
     assert "admin" in page.text
 
 
+def test_archive_page_lists_only_archived_and_scopes_by_author(client):
+    from webapp.db import SessionLocal
+    from webapp.models.user import User
+    from webapp.services.security import hash_password
+
+    def ensure_user(login_name: str, password: str) -> None:
+        db = SessionLocal()
+        try:
+            if not db.query(User).filter(User.login == login_name).first():
+                db.add(
+                    User(
+                        login=login_name,
+                        email=f"{login_name}@example.com",
+                        password_hash=hash_password(password),
+                        role="guest",
+                        status="active",
+                    )
+                )
+                db.commit()
+        finally:
+            db.close()
+
+    ensure_user("archive_owner", "archive-owner-password-123")
+    ensure_user("archive_reader", "archive-reader-password-123")
+
+    login(client, "archive_owner", "archive-owner-password-123")
+    token = csrf(client)
+    created = client.post(
+        "/drafts/new", data={"csrf_token": token, "title": "Архивный пост владельца"}, follow_redirects=False
+    )
+    assert created.status_code == 303
+    post_id = int(created.headers["location"].rstrip("/").split("/")[-1])
+    assert "Архивный пост владельца" in client.get("/drafts").text
+
+    archived = client.post(f"/drafts/{post_id}/archive", data={"csrf_token": token}, follow_redirects=False)
+    assert archived.status_code == 303
+    assert archived.headers["location"] == "/archive"
+
+    archive_page = client.get("/archive")
+    assert "<h1>Архив</h1>" in archive_page.text
+    assert "Архивный пост владельца" in archive_page.text
+    assert 'href="/archive"' in archive_page.text
+    assert "Архивный пост владельца" not in client.get("/drafts").text
+
+    login(client, "archive_reader", "archive-reader-password-123")
+    assert "Архивный пост владельца" not in client.get("/archive").text
+
+    login(client, "admin", "test-admin-password-12345")
+    assert "Архивный пост владельца" in client.get("/archive").text
+
+
 def test_job_wait_panel(client):
     from webapp.db import SessionLocal
     from webapp.models.system import Job

@@ -13,6 +13,7 @@
       {% if user is defined and user %}
         <a href="/dashboard">Кабинет</a>
         <a href="/drafts">Черновики</a>
+        <a href="/archive">Архив</a>
         <a href="/tickets">Тикеты</a>
         {% if user.role == 'admin' %}<a href="/admin">Админка</a>{% endif %}
         <form method="post" action="/logout" class="inline">

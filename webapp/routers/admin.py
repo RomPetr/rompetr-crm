@@ -266,6 +266,34 @@ def ticket_reply(
     return RedirectResponse(f"/admin/tickets/{ticket.id}", status_code=303)
 
 
+@router.post("/tickets/{ticket_id}/status")
+def ticket_status(
+    ticket_id: int,
+    status: str = Form(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if status not in {"open", "in_progress", "closed"}:
+        raise HTTPException(status_code=400, detail="Неизвестный статус тикета")
+    ticket = db.get(Ticket, ticket_id)
+    if ticket is None:
+        raise HTTPException(status_code=404)
+    previous = ticket.status
+    ticket.status = status
+    ticket.closed_at = datetime.now(timezone.utc) if status == "closed" else None
+    ticket.updated_at = datetime.now(timezone.utc)
+    audit.log_action(
+        db,
+        "admin.ticket_status_changed",
+        actor_id=admin.id,
+        entity_type="ticket",
+        entity_id=str(ticket.id),
+        meta={"from": previous, "to": status},
+    )
+    db.commit()
+    return RedirectResponse(f"/admin/tickets/{ticket.id}", status_code=303)
+
+
 @router.get("/posts")
 def posts_list(request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     rows = db.execute(

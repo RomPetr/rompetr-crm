@@ -4,6 +4,32 @@
 <h1>Тикет #{{ ticket.id }}</h1>
 <p class="muted">{{ ticket.subject }} · {{ ticket.kind }} · {{ ticket.status }} · пользователь {{ owner.id }} · {{ owner.login }}</p>
 
+<section class="card">
+  <h2>Статус тикета</h2>
+  <div class="actions-cell">
+    {% if ticket.status == "closed" %}
+      <form method="post" action="/admin/tickets/{{ ticket.id }}/status">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="status" value="open">
+        <button class="button small" type="submit">Переоткрыть</button>
+      </form>
+    {% else %}
+      {% if ticket.status == "open" %}
+        <form method="post" action="/admin/tickets/{{ ticket.id }}/status">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="status" value="in_progress">
+          <button class="button small" type="submit">В работу</button>
+        </form>
+      {% endif %}
+      <form method="post" action="/admin/tickets/{{ ticket.id }}/status">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="status" value="closed">
+        <button class="button small secondary" type="submit">Закрыть</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+
 <div class="card">
   {% for message, author in messages %}
     <div class="message {{ 'internal' if message.is_internal else '' }}">
