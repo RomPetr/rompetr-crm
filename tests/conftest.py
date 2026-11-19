@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
+(ROOT / "var").mkdir(parents=True, exist_ok=True)
 db_path = (ROOT / "var" / "test.sqlite3").as_posix()
 
 os.environ.setdefault("APP_ENV", "test")

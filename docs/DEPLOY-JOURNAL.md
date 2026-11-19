@@ -500,11 +500,42 @@ $//'`.
 Осталось:
 
 - [x] Домен `rompetr.autos` направлен на `62.171.228.41`; HTTP и DCV-файл работают.
-- [ ] Установить HTTPS-сертификат, переключить `APP_ENV=prod` и `COOKIE_SECURE=true`.
+- [x] Установить HTTPS-сертификат, переключить `APP_ENV=prod` и `COOKIE_SECURE=true`.
 - [x] AI-задачи: worker использует `ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`.
 - [ ] Проверить полный цикл `ai_check` и `compose_news` из интерфейса CRM на VPS.
 - [ ] SMTP и offsite-бэкапы.
 - [ ] Проверить публикацию в тестовые VK/Telegram с VPS.
+
+### 2026-11-19 — прод-режим и HTTPS-редирект
+
+- Фактическое состояние на момент проверки: DNS `rompetr.autos` и `www` уже указывал
+  на `62.171.228.183`; HTTP и HTTPS отдавали `200`, сертификат валиден.
+- Сняты бэкапы: `/etc/rompetr-crm/app.env.bak-20261119` и
+  `/etc/nginx/sites-available/rompetr.bak-20261119`.
+- `/etc/rompetr-crm/app.env`: `APP_ENV=prod`, `APP_BASE_URL=https://rompetr.autos`,
+  `COOKIE_SECURE=true`. Файл остаётся ASCII, без CRLF.
+- nginx: HTTP-сервер теперь отдаёт `301 https://rompetr.autos$request_uri`;
+  каталог `/.well-known/pki-validation/` сохранён. HTTPS-сервер не менялся.
+- Выполнены `nginx -t`, `systemctl reload nginx`,
+  `systemctl restart rompetr-web rompetr-worker`.
+- Проверено снаружи: apex и www по HTTP → `301` на `https://rompetr.autos`;
+  `/healthz` → `200 {"status":"ok"}`; `/login` → `200`; `/docs` → `404`
+  (признак `APP_ENV=prod`); CSRF-cookie содержит `Secure`; HSTS отдаётся;
+  `nginx`, `rompetr-web`, `rompetr-worker` — active.
+- Новый конфиг nginx собран в `var/rompetr-nginx.conf` (в git не попадает).
+
+### 2026-11-19 — гигиена репозитория и CI
+
+- Локальная ветка синхронизирована с `origin/main` (5 коммитов со скриншотами,
+  сделанных через GitHub web).
+- README: скриншоты переведены на относительные пути, удалена заглушка `## ...`.
+- Исправлена случайная правка в `docs/CLAUDE-CODE-DEEPSEEK-SETUP.md`: команда
+  `setup-deepseek-env.ps1` была заменена на букву `в`.
+- `ruff check .` — зелёный: исправлен порядок импортов в alembic, добавлены
+  per-file ignores для E501 в `alembic/versions/*` и legacy `bot.py`.
+- `git_guard` теперь разрешает изображения только из `docs/images/`; остальные
+  PNG и медиа по-прежнему блокируются. Тест guard обновлён.
+- Добавлен GitHub Actions `.github/workflows/ci.yml`: ruff, pytest и guard.
 
 ---
 
@@ -513,7 +544,7 @@ $//'`.
 | ID | Вопрос | Текущее допущение |
 |---|---|---|
 | Q1 | SMTP-провайдер и ADMIN_EMAIL | dev-режим, письма в `var/mail/` |
-| Q2 | DNS и способ сертификата | DNS-01, TTL 300 |
+| Q2 | DNS и способ сертификата | Закрыт: DNS на `.183`, сертификат GoGetSSL до 04.06.2027 |
 | Q3 | VPS: IP, ресурсы, SSH | 2 vCPU / 4 ГБ / 40 ГБ |
 | Q4 | Правит ли гость черновик после отправки | Нет |
 | Q5 | Кто публикует | user — свой approved; guest — 1 публикация после одобрения |
@@ -528,6 +559,7 @@ $//'`.
 - Роль `moderator` — только в планах.
 - Планировщик `scheduled_at` есть в CLI, но нет поля в UI черновика.
 - SMTP для реальных писем; сейчас dev-режим.
-- HTTPS-сертификат: домен и DCV настроены, ждём файлы от провайдера.
 - Offsite-бэкапы и мониторинг.
+- Проверить вход админом и полный цикл `ai_check`/`compose_news` после включения `APP_ENV=prod`.
+- Удалить неиспользуемый `docs/images/main.png` (1 байт).
 - Автоматическая публикация X через API не используется — только ручная очередь.

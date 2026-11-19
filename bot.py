@@ -15,7 +15,6 @@ import argparse
 import glob
 import json
 import os
-import re
 import sys
 import urllib.error
 import urllib.parse

@@ -135,13 +135,13 @@ Remote: `https://github.com/RomPetr/rompetr-crm` (публичный, ветка
 
 | Параметр | Значение |
 |---|---|
-| Адрес | `http://rompetr.autos`; HTTPS готов на `.183:443`, DNS ещё на `.41` |
+| Адрес | `https://rompetr.autos` (DNS и TLS на `.183`; HTTP → 301) |
 | ОС | Debian 12, Python 3.11 |
 | База | PostgreSQL 15 |
 | Код / venv | `/srv/rompetr/crm` / `/srv/rompetr/venv` |
 | Конфиг | `/etc/rompetr-crm/app.env` (640 `root:cpapp`) |
 | Сервисы | `rompetr-web`, `rompetr-worker`, `nginx`, `gost-claude`, `xray` |
-| Сеть | HTTP `.41:80`; HTTPS nginx `.183:443`; xray Reality `.41:443` |
+| Сеть | HTTP → 301 на HTTPS; nginx HTTPS `.183:443`; xray Reality `.41:443` |
 | AI | Claude Code CLI + DeepSeek, `CLAUDE_HTTP_PROXY` → gost → `62.171.228.183` |
 
 Хронология фактического деплоя, исправленных ошибок и проверок —
@@ -182,10 +182,9 @@ sed -i 's/\r$//' /etc/rompetr-crm/app.env   # CRLF ломает булевы з�
 Заполнить `DATABASE_URL`, `APP_SECRET_KEY`, `ADM_PASSW`, ключи VK/Telegram/ProxyAPI,
 `WORKER_INPROCESS=false`, `WORKER_ID`, `CLAUDE_*`. Значения не печатать и не коммитить.
 
-- **Текущий этап:** `APP_ENV=dev`, `APP_BASE_URL=http://rompetr.autos`,
-  `COOKIE_SECURE=false`; HTTPS уже работает на `.183`, но DNS ещё на `.41`.
-- **После смены DNS на `.183`:** `APP_ENV=prod`, `APP_BASE_URL=https://rompetr.autos`,
-  `COOKIE_SECURE=true`, HTTP → HTTPS redirect.
+- **Текущий этап:** `APP_ENV=prod`, `APP_BASE_URL=https://rompetr.autos`,
+  `COOKIE_SECURE=true`, HTTP → HTTPS redirect. Сайт доступен по
+  `https://rompetr.autos`; сертификат GoGetSSL действует до 04.06.2027.
 
 Проверить, что файл без CRLF (`sed -i 's/\r$//'`), иначе pydantic не разберёт
 булевы значения.
@@ -265,11 +264,10 @@ systemctl enable --now rompetr-web rompetr-worker
 - `62.171.228.41` — xray Reality на `:443`, nginx HTTP на `:80`;
 - `62.171.228.183` — nginx HTTPS на `:443`, сертификат GoGetSSL.
 
-DNS сейчас указывает на `.41`, поэтому публичный адрес — `http://rompetr.autos`.
-HTTPS на `.183` уже проверен локально (`curl --resolve ... https://rompetr.autos`
-→ 200). После смены A-записей на `.183` включается редирект HTTP → HTTPS.
+DNS указывает на `.183`, публичный адрес — `https://rompetr.autos`.
+Сертификат GoGetSSL установлен; HTTP-сервер отдаёт `301` на HTTPS.
 
-HTTP-сервер (текущий этап):
+HTTP-сервер (редирект):
 
 ```nginx
 server {
@@ -283,11 +281,7 @@ server {
         add_header Cache-Control "no-store";
     }
     location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        return 301 https://rompetr.autos$request_uri;
     }
 }
 ```
@@ -390,8 +384,8 @@ systemctl is-active gost-claude
 ### 8.6. Проверка после деплоя
 
 ```bash
-curl -fsS http://rompetr.autos/healthz
-curl -fsS --resolve rompetr.autos:443:62.171.228.183 https://rompetr.autos/healthz
+curl -sSI http://rompetr.autos/healthz | grep -q '301'
+curl -fsS https://rompetr.autos/healthz
 systemctl is-active rompetr-web rompetr-worker nginx gost-claude xray
 journalctl -u rompetr-worker -n 50 --no-pager
 ```
@@ -408,8 +402,8 @@ cd /srv/rompetr/crm
 set -a; . /etc/rompetr-crm/app.env; set +a
 runuser -u cpapp -m -- /srv/rompetr/venv/bin/python -m alembic upgrade head
 systemctl restart rompetr-worker rompetr-web
-curl -fsS http://rompetr.autos/healthz
-curl -fsS --resolve rompetr.autos:443:62.171.228.183 https://rompetr.autos/healthz
+curl -sSI http://rompetr.autos/healthz | grep -q '301'
+curl -fsS https://rompetr.autos/healthz
 ```
 
 Миграции запускать **до** перезапуска web: новая модель может ожидать колонки,
@@ -431,7 +425,7 @@ AI-задачу из UI.
 | VPS-кнопка «Открыть X с картинкой» недоступна | на VPS нет GUI и Node; X-композер запускается на Windows-машине с Chrome-профилем |
 | После обновления ошибка о missing column | миграции применить **до** перезапуска web: `alembic upgrade head` |
 | nginx не стартует: `bind() to 0.0.0.0:443 failed` | порт занят xray; xray должен слушать `62.171.228.41:443`, nginx — `62.171.228.183:443` |
-| `https://rompetr.autos` попадает в xray / TLS alert | DNS ещё указывает на `.41`; переключить A/AAAA на `62.171.228.183` |
+| `https://rompetr.autos` попадает в xray / TLS alert | DNS указывает на `.41`; A/AAAA должны указывать на `62.171.228.183` |
 | «Сгенерировать новость»: `budget_exhausted`, черновик пуст | JSON мог быть записан в `var/jobs/<public_id>/post.json`; поднять `CLAUDE_COMPOSE_BUDGET_USD`, запретить субагентов, `compose_news` имеет `max_attempts=1` |
 | Telegram длиннее 1024 после AI-перевода | Checker обязан пересчитывать длину после перевода; `run_ai_check` теперь отклоняет JSON с выходом за лимит и не применяет его |
 | Новая картинка сгенерировалась, но в черновике старая | Проверить `assets.is_primary`; новая картинка должна становиться primary, старые — `false` |

@@ -9,7 +9,7 @@ CRM-система для подготовки и публикации ново�
 Pixly, команда `/publish`. Теперь тот же пайплайн доступен через браузер и базу данных,
 с пользователями, ролями, очередью задач и историей публикаций.
 
-<img width="1920" height="1080" alt="rompetr.autos скриншот главной страницы" src="https://github.com/RomPetr/rompetr-crm/blob/main/docs/images/site_main.png" />
+![Главная страница rompetr.autos](docs/images/site_main.png)
 
 ---
 
@@ -41,7 +41,8 @@ Pixly, команда `/publish`. Теперь тот же пайплайн до
 | Гость может натворить лишнего | Гостю выдаются квоты: 1 поиск, 2 картинки и 1 публикация после одобрения; админ меняет лимиты для каждого гостя |
 | Планировщик живёт только пока открыт Claude Code | Очередь `jobs` и `scheduled_at` в БД; запуск по расписанию через CLI/worker |
 
-![Генерация новости](/docs/images/site_gen.png)
+![Генерация новости](docs/images/site_gen.png)
+
 ---
 
 ## Что уже работает
@@ -66,16 +67,17 @@ Pixly, команда `/publish`. Теперь тот же пайплайн до
   исходящий трафик Claude Code при желании идёт через отдельный IP (gost).
 - Старый конвейер `/publish` с `-no_post` и MD-копией для ручного копирования.
 
-![Готовая новость](/docs/images/site_result1.png)
-## ...
-![Готовая новость](/docs/images/site_result2.png)
+![Готовая новость](docs/images/site_result1.png)
+
+![Готовая новость](docs/images/site_result2.png)
+
 ---
 
 ## Архитектура
 
 ```text
 Браузер
-  │ HTTP по IP (TLS и домен — следующий этап)
+  │ HTTPS rompetr.autos (HTTP → 301, TLS GoGetSSL)
   ▼
 nginx (rate limit, static, reverse proxy)
   │ 127.0.0.1:8000
@@ -136,14 +138,14 @@ CRM **уже развёрнута** и работает на VPS. Деплой �
 
 | Параметр | Текущее состояние |
 |---|---|
-| Публичный адрес | `http://rompetr.autos`; HTTPS готов на `62.171.228.183:443`, DNS ещё указывает на `.41` |
+| Публичный адрес | `https://rompetr.autos` (DNS и TLS на `62.171.228.183`; HTTP → 301) |
 | ОС | Debian 12, Python 3.11 |
 | База | PostgreSQL 15 (штатная версия Debian) |
 | Код | `/srv/rompetr/crm` |
 | Виртуальное окружение | `/srv/rompetr/venv` |
 | Конфигурация | `/etc/rompetr-crm/app.env`, 640 `root:cpapp` |
 | systemd | `rompetr-web`, `rompetr-worker` |
-| nginx | reverse proxy на `127.0.0.1:8000`; HTTP — на `.41`, HTTPS — на `.183` |
+| nginx | reverse proxy на `127.0.0.1:8000`; HTTP → HTTPS redirect; HTTPS — на `.183` |
 | VPN | xray Reality на `62.171.228.41:443`, клиенты не меняются |
 | AI | Claude Code CLI + Anthropic-совместимый API DeepSeek |
 | Второй IP | `62.171.228.183`: HTTPS для сайта и опционально `gost` для Claude Code |
@@ -172,11 +174,10 @@ AI-проверка и генерация новости завершаются,
 в проектном скилле [`.claude/skills/rompetr-crm/SKILL.md`](.claude/skills/rompetr-crm/SKILL.md).
 Скилл подхватывается Claude Code автоматически; Docker не требуется.
 
-**Что ещё не сделано на текущем этапе:** переключить A-записи `rompetr.autos` и
-`www.rompetr.autos` с `62.171.228.41` на `62.171.228.183`, после чего включить
-production-режим и редирект HTTP → HTTPS. Сертификат GoGetSSL уже установлен,
-nginx на `.183:443` отдаёт `200`; SMTP, offsite-бэкапы и мониторинг ещё впереди.
-Пока сайт работает по HTTP в режиме `APP_ENV=dev`, `COOKIE_SECURE=false`.
+**Что ещё не сделано:** SMTP для реальных писем (сейчас `EMAIL_MODE=dev`),
+offsite-бэкапы PostgreSQL и медиа, мониторинг и алерты. Прод-режим и HTTPS уже
+включены: `APP_ENV=prod`, `APP_BASE_URL=https://rompetr.autos`, `COOKIE_SECURE=true`,
+HTTP → HTTPS redirect; сертификат GoGetSSL действует до 04.06.2027.
 
 ---
 
@@ -190,6 +191,7 @@ scripts/           git_guard, json_to_md, smoke_publish, init_db, восстан
 tests/             pytest: auth, черновики, публикация, очередь, compose,
                    модерация, гостевые квоты, медиа, guard
 docs/              план, журнал деплоя, инструкция по DeepSeek
+.github/           GitHub Actions: ruff, pytest, guard
 .claude/           скилл проекта, субагенты Checker/Pixly, команда publish,
                    настройки worker
 bot.py             legacy-публикатор Telegram
@@ -212,14 +214,13 @@ posts/             данные постов (в git не попадают)
 - Медиа отдаётся только автору и админу.
 - Worker работает под отдельным пользователем `cpworker`; Claude Code получает только
   разрешённые переменные окружения, без ключей БД и соцсетей.
-- На текущем IP-этапе TLS ещё не включён, `COOKIE_SECURE=false`. Перед публичным
-  доменом обязательны HTTPS, `APP_ENV=prod` и `COOKIE_SECURE=true`.
+- HTTPS включён: `APP_ENV=prod`, `COOKIE_SECURE=true`, HTTP → HTTPS redirect и HSTS;
+  сертификат GoGetSSL действует до 04.06.2027.
 
 ---
 
 ## Перспективы
 
-- Переключение DNS на `.183` и включение HTTPS-редиректа; сертификат и nginx уже готовы.
 - Регулярные бэкапы PostgreSQL и медиа, включая offsite-копию.
 - Мониторинг, алерты и ротация логов.
 - Роль `moderator` и разделение редактора и администратора.
@@ -246,12 +247,13 @@ posts/             данные постов (в git не попадают)
 ## Статус
 
 Проект развёрнут и работает на VPS: Debian 12, PostgreSQL 15, nginx, systemd,
-UFW и fail2ban. Действующий адрес — **http://rompetr.autos**. Сертификат GoGetSSL
-установлен, nginx слушает `.183:443` и локально отдаёт `200`; осталось переключить
-DNS на `.183` и включить редирект. Xray Reality остаётся на `.41:443`, VPN-клиенты
-не меняются. Вход админом, `/admin`, модерация, гостевые квоты и AI-задачи проверены.
+UFW и fail2ban. Действующий адрес — **https://rompetr.autos**: DNS и TLS на
+`62.171.228.183`, HTTP редиректит на HTTPS, включены `APP_ENV=prod` и
+`COOKIE_SECURE=true`. Xray Reality остаётся на `.41:443`, VPN-клиенты не меняются.
+Вход админом, `/admin`, модерация, гостевые квоты и AI-задачи проверены.
 
 - **Тесты:** 47 автотестов (`pytest`) и `ruff` — зелёные.
+- **CI:** GitHub Actions — `ruff`, `pytest` и `git_guard` на каждый push и PR.
 - **База:** миграции Alembic применены локально и на VPS.
 - **Проверенные сценарии:** регистрация и вход, черновики, модерация,
   AI-перевод и «Сгенерировать новость», ProxyAPI (Flux.2 Pro / GPT Image 1 mini),
@@ -261,5 +263,5 @@ DNS на `.183` и включить редирект. Xray Reality остаёт�
 - **Ограничение X:** автоматическая публикация через API не используется; текст и
   картинка готовятся в локальном Chrome-композере, финальное нажатие Post — вручную.
 
-Следующие шаги: переключить DNS `rompetr.autos` и `www` на `.183`, включить
-HTTPS-редирект и production-режим cookie, затем SMTP, резервное копирование и мониторинг.
+Следующие шаги: SMTP для реальных писем, регулярное резервное копирование
+(включая offsite) и мониторинг.
