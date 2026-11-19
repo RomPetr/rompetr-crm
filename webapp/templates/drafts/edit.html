@@ -207,7 +207,7 @@
   <form method="post" action="/drafts/{{ post.id }}/generate-news" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <h2>Сгенерировать новость</h2>
-    <p class="muted">Полный цикл: поиск новости, JSON, проверка, поля площадок и картинка. Может занять до нескольких минут.{% if user.role == "guest" %} Гостю доступен {{ usage.compose_limit }} поиск информации.{% endif %}</p>
+    <p class="muted">Полный цикл: поиск новости, JSON, проверка, поля площадок и картинка. Может занять до нескольких минут.{% if user.role == "guest" %} Гостю доступно {{ usage.compose_limit }} {{ usage.compose_limit | ru_plural("поиск", "поиска", "поисков") }} новости.{% endif %}</p>
     <label>Модель изображения
       <select name="model">
         <option value="black-forest-labs/flux.2-pro">Flux.2 Pro</option>
