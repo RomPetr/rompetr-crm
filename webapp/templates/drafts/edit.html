@@ -13,7 +13,15 @@
 </div>
 {% if message == "saved" %}<p class="ok">Сохранено.</p>{% endif %}
 {% if message == "check" %}<p class="ok">Проверка пройдена.</p>{% endif %}
-{% if message == "submitted" %}<p class="ok">Отправлено на проверку администратору.</p>{% endif %}
+{% if message == "submitted" %}
+  {% if post.status in ["approved", "published"] %}
+    <p class="ok">Подтверждено администратором.</p>
+  {% elif post.status == "rejected" %}
+    <p class="ok">Пост отклонён.</p>
+  {% else %}
+    <p class="ok">Отправлено на проверку администратору.</p>
+  {% endif %}
+{% endif %}
 {% if message == "image" %}<p class="ok">Изображение загружено.</p>{% endif %}
 {% if message == "image_deleted" %}<p class="ok">Изображение удалено.</p>{% endif %}
 {% if message == "published" %}<p class="ok">Публикация выполнена.</p>{% endif %}

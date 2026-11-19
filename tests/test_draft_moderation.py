@@ -6,6 +6,7 @@ from webapp.db import SessionLocal
 from webapp.models.content import Post
 from webapp.models.user import User
 from webapp.services import posts
+from webapp.services.security import hash_password
 
 
 def csrf(client) -> str:
@@ -109,3 +110,52 @@ def test_admin_can_reject_from_draft_page_with_reason(client):
         assert post.rejection_reason == "Не хватает фактов и источника"
     finally:
         db.close()
+
+
+def test_submitted_flash_updates_after_approval(client):
+    db = SessionLocal()
+    try:
+        user = User(
+            login="flashguest",
+            email="flashguest@example.com",
+            password_hash=hash_password("flashguest-password-123"),
+            role="guest",
+            status="active",
+        )
+        db.add(user)
+        db.commit()
+        post = posts.create_draft(db, user, "Flash message after approval")
+        post.status = "pending_review"
+        db.commit()
+        post_id = post.id
+    finally:
+        db.close()
+
+    token = csrf(client)
+    login = client.post(
+        "/login",
+        data={
+            "csrf_token": token,
+            "username": "flashguest",
+            "password": "flashguest-password-123",
+        },
+        follow_redirects=False,
+    )
+    assert login.status_code == 303
+
+    pending = client.get(f"/drafts/{post_id}?ok=submitted")
+    assert "Отправлено на проверку администратору." in pending.text
+
+    db = SessionLocal()
+    try:
+        post = db.get(Post, post_id)
+        post.status = "approved"
+        post.approved_by = 0
+        post.approved_at = datetime.now(timezone.utc)
+        db.commit()
+    finally:
+        db.close()
+
+    approved = client.get(f"/drafts/{post_id}?ok=submitted")
+    assert "Подтверждено администратором." in approved.text
+    assert "Отправлено на проверку администратору." not in approved.text
