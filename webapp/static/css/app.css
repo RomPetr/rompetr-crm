@@ -126,6 +126,18 @@ h2 { font-size: 20px; margin: 0 0 8px; }
   margin: 40px 0;
 }
 
+/* Панель управления: карточки-действия прижимают кнопки к низу,
+   поэтому в одной строке grid кнопки выстраиваются по одной линии.
+   Для новых карточек с кнопками используйте class="grid action-grid"
+   и оборачивайте действие в <div class="card-actions">. */
+.action-grid > .card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.action-grid > .card > h2 { margin-bottom: 0; }
+.action-grid > .card > .card-actions { margin-top: auto; }
+
 .card {
   background: var(--surface);
   border: 1px solid var(--border);

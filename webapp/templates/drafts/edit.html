@@ -189,18 +189,22 @@
 {% endif %}
 
 {% if editable %}
-<div class="grid">
+<div class="grid action-grid">
   <div class="card">
     <h2>Проверка</h2>
     <p class="muted">Лимиты площадок, язык X, секреты и обещания доходности. Перед проверкой сохраните черновик.</p>
-    <button class="button secondary" type="submit" form="draft-form" formaction="/drafts/{{ post.id }}/check">Проверить</button>
+    <div class="card-actions">
+      <button class="button secondary" type="submit" form="draft-form" formaction="/drafts/{{ post.id }}/check">Проверить</button>
+    </div>
   </div>
   {% if user and user.role not in ["admin", "moderator"] %}
   <form method="post" action="/drafts/{{ post.id }}/submit" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <h2>Модерация</h2>
     <p class="muted">Отправить админу или модератору на одобрение.</p>
-    <button class="button secondary" type="submit">На проверку</button>
+    <div class="card-actions">
+      <button class="button secondary" type="submit">На проверку</button>
+    </div>
   </form>
   {% endif %}
   {% if user and user.role in ["admin", "guest"] %}
@@ -214,7 +218,7 @@
         <option value="gpt-image-1-mini">GPT Image 1 mini</option>
       </select>
     </label>
-    <div class="actions-row">
+    <div class="card-actions actions-row">
       <button class="button" type="submit" {% if user.role == "guest" and usage.compose_used >= usage.compose_limit %}disabled{% endif %}>Запустить</button>
       <span class="badge usage-badge{% if user.role == "guest" and usage.compose_used >= usage.compose_limit %} exhausted{% endif %}">Поиск: {{ usage.compose_used }}{% if user.role == "guest" %}/{{ usage.compose_limit }}{% endif %}</span>
     </div>
@@ -223,20 +227,22 @@
   <form method="post" action="/drafts/{{ post.id }}/ai-check" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <h2>AI-перевод</h2>
-    <p class="muted">Переводит включённые тексты на русский и проверяет формулировки. X остаётся английским. В dev обрабатывается автоматически; на VPS — отдельный worker.</p>
-    <button class="button secondary" type="submit">Запустить</button>
+    <p class="muted">Переводит включённые тексты на русский и проверяет формулировки. X остаётся английским.</p>
+    <div class="card-actions">
+      <button class="button secondary" type="submit">Запустить</button>
+    </div>
   </form>
   <form method="post" action="/drafts/{{ post.id }}/generate-image" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <h2>Сгенерировать PNG</h2>
-    <p class="muted">Выберите модель. В dev задача обрабатывается автоматически; на VPS — отдельный worker.</p>
+    <p class="muted">Выберите модель.</p>
     <label>Модель
       <select name="model">
         <option value="black-forest-labs/flux.2-pro">Flux.2 Pro</option>
         <option value="gpt-image-1-mini">GPT Image 1 mini</option>
       </select>
     </label>
-    <div class="actions-row">
+    <div class="card-actions actions-row">
       <button class="button secondary" type="submit" {% if user.role == "guest" and usage.image_used >= usage.image_limit %}disabled{% endif %}>Запустить</button>
       <span class="badge usage-badge{% if user.role == "guest" and usage.image_used >= usage.image_limit %} exhausted{% endif %}">Картинки: {{ usage.image_used }}{% if user.role == "guest" %}/{{ usage.image_limit }}{% endif %}</span>
     </div>
@@ -246,13 +252,17 @@
     <h2>Изображение</h2>
     <p class="muted">PNG или JPEG, до 10 МБ. Перекодируется в PNG без EXIF.</p>
     <input type="file" name="image" accept="image/png,image/jpeg" required>
-    <button class="button secondary" type="submit">Загрузить</button>
+    <div class="card-actions">
+      <button class="button secondary" type="submit">Загрузить</button>
+    </div>
   </form>
   <form method="post" action="/drafts/{{ post.id }}/archive" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <h2>Архив</h2>
     <p class="muted">Скрыть черновик из работы.</p>
-    <button class="button secondary" type="submit">В архив</button>
+    <div class="card-actions">
+      <button class="button secondary" type="submit">В архив</button>
+    </div>
   </form>
 </div>
 {% endif %}
