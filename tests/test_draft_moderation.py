@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 from webapp.db import SessionLocal
@@ -88,6 +89,57 @@ def test_published_post_shows_moderation_passed(client):
     assert "Поиск: без лимита" in page.text
     assert "Картинки: без лимита" in page.text
     assert "Публикаций: без лимита" in page.text
+
+
+def test_published_post_texts_are_editable_for_copy(client):
+    db = SessionLocal()
+    try:
+        user = User(
+            login="copyguest",
+            email="copyguest@example.com",
+            password_hash=hash_password("copyguest-password-123"),
+            role="guest",
+            status="active",
+        )
+        db.add(user)
+        db.commit()
+        post = posts.create_draft(db, user, "Published copy fields")
+        post.status = "published"
+        post.platforms = {"telegram": "Готовый текст для другой площадки"}
+        post.platforms_enabled = {
+            "telegram": True,
+            "vk": False,
+            "instagram": False,
+            "x": False,
+            "tiktok": False,
+        }
+        db.commit()
+        post_id = post.id
+    finally:
+        db.close()
+
+    token = csrf(client)
+    login = client.post(
+        "/login",
+        data={
+            "csrf_token": token,
+            "username": "copyguest",
+            "password": "copyguest-password-123",
+        },
+        follow_redirects=False,
+    )
+    assert login.status_code == 303
+
+    page = client.get(f"/drafts/{post_id}")
+    assert page.status_code == 200
+    assert "Пост опубликован. Тексты можно отредактировать" in page.text
+    assert "Изменения на странице не сохраняются." in page.text
+    assert 'data-copy-target="field_telegram"' in page.text
+    telegram = re.search(r'<textarea id="field_telegram"[^>]*>', page.text)
+    assert telegram is not None
+    assert "data-copy-field" in telegram.group(0)
+    assert "disabled" not in telegram.group(0)
+    assert "/static/js/copy_fields.js" in page.text
 
 
 def test_admin_can_reject_from_draft_page_with_reason(client):

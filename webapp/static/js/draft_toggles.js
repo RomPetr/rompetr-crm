@@ -3,6 +3,11 @@ document.querySelectorAll("[data-toggle-target]").forEach((checkbox) => {
   if (!target) return;
 
   function sync() {
+    if (target.hasAttribute("data-copy-field")) {
+      target.disabled = false;
+      target.classList.remove("disabled-field");
+      return;
+    }
     if (checkbox.disabled) {
       target.disabled = true;
       target.classList.add("disabled-field");
