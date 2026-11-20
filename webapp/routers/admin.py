@@ -70,13 +70,16 @@ def users_list(
         compose_limit, image_limit, publication_limit = usage_service.effective_guest_limits(
             user, settings
         )
+        compose_used = usage_service.user_job_count(db, user.id, "compose_news")
+        image_used = usage_service.user_job_count(db, user.id, "generate_image")
+        publications_used = usage_service.user_publication_count(db, user.id)
         guest_limits[user.id] = {
-            "compose_limit": compose_limit,
-            "image_limit": image_limit,
-            "publication_limit": publication_limit,
-            "compose_used": usage_service.user_job_count(db, user.id, "compose_news"),
-            "image_used": usage_service.user_job_count(db, user.id, "generate_image"),
-            "publications_used": usage_service.user_publication_count(db, user.id),
+            "compose_used": compose_used,
+            "image_used": image_used,
+            "publications_used": publications_used,
+            "compose_remaining": usage_service.remaining(compose_limit, compose_used),
+            "image_remaining": usage_service.remaining(image_limit, image_used),
+            "publication_remaining": usage_service.remaining(publication_limit, publications_used),
         }
     return render(
         request,
@@ -161,20 +164,26 @@ def change_role(
 @router.post("/users/{user_id}/limits")
 def set_guest_limits(
     user_id: int,
-    compose_limit: int = Form(...),
-    image_limit: int = Form(...),
-    publication_limit: int = Form(...),
+    compose_remaining: int = Form(...),
+    image_remaining: int = Form(...),
+    publication_remaining: int = Form(...),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    values = (compose_limit, image_limit, publication_limit)
+    values = (compose_remaining, image_remaining, publication_remaining)
     if any(value < 0 or value > 1000 for value in values):
-        raise HTTPException(status_code=400, detail="Лимиты должны быть от 0 до 1000")
+        raise HTTPException(status_code=400, detail="Остаток должен быть от 0 до 1000")
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404)
     if user.id == 0 or user.role != "guest":
         raise HTTPException(status_code=400, detail="Лимиты доступны только для guest")
+    compose_used = usage_service.user_job_count(db, user.id, "compose_news")
+    image_used = usage_service.user_job_count(db, user.id, "generate_image")
+    publications_used = usage_service.user_publication_count(db, user.id)
+    compose_limit = compose_used + compose_remaining
+    image_limit = image_used + image_remaining
+    publication_limit = publications_used + publication_remaining
     user.guest_compose_limit = compose_limit
     user.guest_image_limit = image_limit
     user.guest_publication_limit = publication_limit
@@ -185,9 +194,12 @@ def set_guest_limits(
         entity_type="user",
         entity_id=str(user.id),
         meta={
-            "compose": compose_limit,
-            "image": image_limit,
-            "publication": publication_limit,
+            "compose_remaining": compose_remaining,
+            "image_remaining": image_remaining,
+            "publication_remaining": publication_remaining,
+            "compose_limit": compose_limit,
+            "image_limit": image_limit,
+            "publication_limit": publication_limit,
         },
     )
     db.commit()

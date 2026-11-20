@@ -65,8 +65,11 @@ def _usage(db: Session, user: User, post: Post) -> dict:
         "image_used": image_used,
         "compose_limit": compose_limit,
         "image_limit": image_limit,
+        "compose_remaining": usage_service.remaining(compose_limit, compose_used),
+        "image_remaining": usage_service.remaining(image_limit, image_used),
         "publications": publications,
         "publication_limit": publication_limit,
+        "publication_remaining": usage_service.remaining(publication_limit, publications),
     }
 
 

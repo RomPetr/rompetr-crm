@@ -85,9 +85,9 @@ def test_published_post_shows_moderation_passed(client):
     assert "Модерация пройдена" in page.text
     assert "Модерация: отклонено" not in page.text
     assert 'class="button published"' in page.text
-    assert "Поиск: 0 · лимита нет" in page.text
-    assert "Картинки: 0 · лимита нет" in page.text
-    assert "Публикаций: 0 · лимита нет" in page.text
+    assert "Поиск: без лимита" in page.text
+    assert "Картинки: без лимита" in page.text
+    assert "Публикаций: без лимита" in page.text
 
 
 def test_admin_can_reject_from_draft_page_with_reason(client):

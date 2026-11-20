@@ -2,7 +2,7 @@
 {% block title %}Пользователи — админка{% endblock %}
 {% block content %}
 <h1>Пользователи</h1>
-{% if request.query_params.get("ok") == "limits" %}<p class="ok">Гостевые лимиты обновлены.</p>{% endif %}
+{% if request.query_params.get("ok") == "limits" %}<p class="ok">Остаток лимитов обновлён.</p>{% endif %}
 {% if status_filter %}<p class="muted">Фильтр: статус «{{ status_filter }}». <a href="/admin/users">Показать всех</a></p>{% endif %}
 <p class="muted">ID 0 — неизменяемый администратор. Новые пользователи приходят как guest и ждут одобрения. Роли: guest, user, admin; роль moderator появится позже.</p>
 <div class="table-wrap">
@@ -22,20 +22,22 @@
       <td>
         {% if u.role == 'guest' %}
           {% set limits = guest_limits[u.id] %}
-          <div class="muted">Поиск: {{ limits.compose_used }}/{{ limits.compose_limit }} · Картинки: {{ limits.image_used }}/{{ limits.image_limit }} · Публикации: {{ limits.publications_used }}/{{ limits.publication_limit }}</div>
+          <div class="muted">Использовано: поиск {{ limits.compose_used }} · картинки {{ limits.image_used }} · публикации {{ limits.publications_used }}</div>
+          <div class="muted">Осталось: поиск {{ limits.compose_remaining }} · картинки {{ limits.image_remaining }} · публикации {{ limits.publication_remaining }}</div>
           <form method="post" action="/admin/users/{{ u.id }}/limits" class="limits-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <label>Поиск
-              <input name="compose_limit" type="number" min="0" max="1000" value="{{ limits.compose_limit }}" required>
+            <label>Поиск: осталось
+              <input name="compose_remaining" type="number" min="0" max="1000" value="{{ limits.compose_remaining }}" required>
             </label>
-            <label>Картинки
-              <input name="image_limit" type="number" min="0" max="1000" value="{{ limits.image_limit }}" required>
+            <label>Картинки: осталось
+              <input name="image_remaining" type="number" min="0" max="1000" value="{{ limits.image_remaining }}" required>
             </label>
-            <label>Публикации
-              <input name="publication_limit" type="number" min="0" max="1000" value="{{ limits.publication_limit }}" required>
+            <label>Публикации: осталось
+              <input name="publication_remaining" type="number" min="0" max="1000" value="{{ limits.publication_remaining }}" required>
             </label>
             <button class="button small secondary" type="submit">Сохранить лимиты</button>
           </form>
+          <p class="muted">Укажите, сколько ещё доступно гостю: после сохранения счётчик у пользователя покажет ровно это число.</p>
         {% else %}
           <span class="muted">—</span>
         {% endif %}

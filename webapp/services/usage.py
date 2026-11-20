@@ -32,6 +32,11 @@ def effective_guest_limits(user: User, settings: Settings) -> tuple[int, int, in
     return max(0, compose), max(0, image), max(0, publication)
 
 
+def remaining(limit: int, used: int) -> int:
+    """Сколько квоты ещё доступно; отрицательного остатка не бывает."""
+    return max(0, limit - used)
+
+
 def user_job_count(db: Session, user_id: int, job_type: str) -> int:
     """Count jobs a user actually started (failed attempts don't consume quota)."""
     value = db.scalar(
