@@ -1,6 +1,6 @@
 ---
 name: rompetr-crm
-description: Работа с репозиторием rompetr-crm: структура проекта, запуск FastAPI и worker, миграции PostgreSQL, правки моделей/сервисов/шаблонов, тесты и ruff, обновление README, публикация в GitHub и проверенный деплой на Debian 12. Используй при любой задаче в C:\Users\rp\course\content.
+description: Работа с репозиторием rompetr-crm: структура проекта, запуск FastAPI и worker, миграции PostgreSQL, правки моделей/сервисов/шаблонов, тесты и ruff, обновление README, публикация в GitHub и проверенный деплой на Debian 12. Используй при любой задаче в этом репозитории.
 ---
 
 # rompetr-crm — как работать с проектом
@@ -81,11 +81,28 @@ cd C:\Users\rp\course\content
 - **Шаблон:** `webapp/templates/...`; JS только внешними файлами в `webapp/static/js/`
   из-за CSP `script-src 'self'`.
 - **Тест:** `tests/test_*.py`. Для новых веток — минимальный тест на поведение.
-- **Права:** admin — модерация и публикация; user — свои черновики; guest — квота на проверку: 1 поиск информации (`compose_news`), 2 генерации PNG (`generate_image`) и 1 публикация одобренного поста суммарно по своим черновикам. Лимиты задаются `GUEST_COMPOSE_LIMIT`, `GUEST_IMAGE_LIMIT`, `GUEST_PUBLICATION_LIMIT`; админ на `/admin/users` видит использование и задаёт все три лимита числом (персональные `users.guest_compose_limit`/`guest_image_limit`/`guest_publication_limit`).
+- **Права:** admin — модерация и публикация; user — свои черновики; guest — квота
+  на проверку: поиск информации (`compose_news`), генерация PNG (`generate_image`)
+  и публикация одобренного поста суммарно по своим черновикам. Значения по
+  умолчанию — 1/2/1 (`GUEST_COMPOSE_LIMIT`, `GUEST_IMAGE_LIMIT`,
+  `GUEST_PUBLICATION_LIMIT`).
+- **Гостевые лимиты:** админ на `/admin/users` видит «Использовано» и «Осталось»
+  и задаёт в форме именно **остаток** (`compose_remaining`, `image_remaining`,
+  `publication_remaining`). Backend сохраняет
+  `limit = used_at_save + remaining`, поэтому гость на странице черновика видит
+  ровно введённое число: «Поиск: осталось N», «Картинки: осталось N»,
+  «Публикаций: осталось N». Упавшая задача и отклонённый дубликат лимит не
+  списывают; картинка из `compose_news` не расходует лимит `generate_image`.
 
 Чекбоксы площадок и `image_prompt` хранятся в `posts.platforms_enabled` и
 `posts.image_enabled`. Выключенное поле не участвует в проверке, AI-переводе и
 публикации, но загруженная картинка всё равно прикрепляется к Telegram.
+
+Повторные источники: `compose_news` передаёт в промпт последние 40 использованных
+заголовков и URL, а `_duplicate_source_post` канонизирует ссылку и отклоняет
+повтор до записи поста. На опубликованном посте тексты площадок остаются
+редактируемыми для копирования (`copy_fields.js`, кнопки «Скопировать»); у гостя
+правки не сохраняются, у админа сохраняются формой.
 
 ## 5. Проверки перед коммитом
 
@@ -100,6 +117,9 @@ git status --short
 - Не коммитить `posts/`, `var/`, `.env`, `*.png`, `.mcp-servers/`.
 - Репозиторий публичный: любой секрет в истории считается скомпрометированным.
 
+Текущий baseline — **61 тест**; при добавлении тестов обновить README и этот
+скилл.
+
 ## 6. README и документация
 
 Обновлять README, если меняются:
@@ -112,6 +132,11 @@ git status --short
 
 Стиль README: по-русски, короткие разделы, таблица болей клиентов, команды в блоках,
 без внутренних путей вида `C:\Users\rp\.cache` и без секретов.
+
+При изменении гостевых лимитов, экранов черновика или публикации обновлять
+`docs/GUEST-ACCEPTANCE.md` и пересобирать `docs/GUEST-ACCEPTANCE.pdf`
+(Markdown → HTML с локальными `images/N.png` → Chrome headless
+`--print-to-pdf`). PDF должен содержать все скриншоты 01–15.
 
 После значимых изменений добавлять запись в `docs/DEPLOY-JOURNAL.md`: что сделано,
 где файлы, что проверить на VPS, новые ловушки.
@@ -325,7 +350,7 @@ ufw allow 22,80,443/tcp && ufw enable
 **Важно:** xray Reality занимает `62.171.228.41:443`. Нельзя поднимать nginx
 на `0.0.0.0:443`, пока xray не ограничен адресом `.41`; иначе nginx не
 запустится с `bind() ... Address already in use`. На текущем стенде xray
-слушает только `.41`, а nginx — `.183`.
+слушает только `.41`, а nginx — `85.136.181.69:443` (`.69`).
 
 Для DCV провайдера файл кладётся в
 `/srv/rompetr/dcv/.well-known/pki-validation/<token>.txt`, проверяется через
@@ -386,8 +411,8 @@ systemctl is-active gost-claude
 ### 8.6. Проверка после деплоя
 
 ```bash
-curl -sSI http://rompetr.autos/healthz | grep -q '301'
-curl -fsS https://rompetr.autos/healthz
+curl -fsS http://127.0.0.1:8000/healthz
+curl -fsS --resolve rompetr.autos:443:85.136.181.69 https://rompetr.autos/healthz
 systemctl is-active rompetr-web rompetr-worker nginx gost-claude xray
 journalctl -u rompetr-worker -n 50 --no-pager
 ```
@@ -398,19 +423,32 @@ journalctl -u rompetr-worker -n 50 --no-pager
 
 ### 8.7. Обновление уже работающего VPS
 
+Команды выполняются по SSH (`my-vps`). `git` и `runuser` запускаются от `cpapp`
+только через `sudo`: без него `runuser` отвечает `may not be used by non-root
+users`, а `git` — `detected dubious ownership`. Пароль sudo берётся из
+`RP_PASSWD` в локальном `.env` и **не печатается**.
+
 ```bash
-runuser -u cpapp -- bash -lc "git -C /srv/rompetr/crm pull --ff-only"
-cd /srv/rompetr/crm
-set -a; . /etc/rompetr-crm/app.env; set +a
-runuser -u cpapp -m -- /srv/rompetr/venv/bin/python -m alembic upgrade head
-systemctl restart rompetr-worker rompetr-web
-curl -sSI http://rompetr.autos/healthz | grep -q '301'
-curl -fsS https://rompetr.autos/healthz
+# $SUDO_PASS — значение RP_PASSWD, подставить без вывода на экран
+echo "$SUDO_PASS" | sudo -S /usr/sbin/runuser -u cpapp -- \
+  git -C /srv/rompetr/crm pull --ff-only
+
+echo "$SUDO_PASS" | sudo -S bash -lc '
+  set -a; . /etc/rompetr-crm/app.env; set +a
+  cd /srv/rompetr/crm
+  /usr/sbin/runuser -u cpapp -- \
+    /srv/rompetr/venv/bin/python -m alembic upgrade head
+'
+
+echo "$SUDO_PASS" | sudo -S systemctl restart rompetr-worker rompetr-web
+curl -fsS http://127.0.0.1:8000/healthz
+curl -fsS --resolve rompetr.autos:443:85.136.181.69 https://rompetr.autos/healthz
 ```
 
 Миграции запускать **до** перезапуска web: новая модель может ожидать колонки,
-которых ещё нет в БД. После обновления проверить `systemctl is-active` и одну
-AI-задачу из UI.
+которых ещё нет в БД. После обновления проверить `systemctl is-active`, статику
+(`/static/js/copy_fields.js`) и одну AI-задачу из UI. Публикация в соцсети
+выполняется только по явной команде владельца.
 
 ## 9. Диагностика
 
@@ -430,6 +468,9 @@ AI-задачу из UI.
 | `nginx -t`: `bind() ... Cannot assign requested address` | `listen` указывает на IP, которого нет на интерфейсе; сверить с `ip -brief addr show ens18` |
 | `https://rompetr.autos` попадает в xray / TLS alert | DNS указывает на `.41`; A/AAAA должны указывать на `85.136.181.69` |
 | «Сгенерировать новость»: `budget_exhausted`, черновик пуст | JSON мог быть записан в `var/jobs/<public_id>/post.json`; поднять `CLAUDE_COMPOSE_BUDGET_USD`, запретить субагентов, `compose_news` имеет `max_attempts=1` |
+| «Эта новость уже использована в посте #N…» | сработала защита от дубликата: `_duplicate_source_post` канонизирует URL. Нажать «Запустить» ещё раз; лимит не потрачен |
+| На опубликованном посте поле недоступно / нет «Скопировать» | проверить `manual_copy` в `edit.html`, `data-copy-field` и подключение `/static/js/copy_fields.js`; clipboard работает на HTTPS, есть fallback `execCommand` |
+| Гость видит не то число лимита, что ввёл админ | backend хранит `limit = used_at_save + remaining`; сверить «Использовано»/«Осталось» в `/admin/users` и поля `compose_remaining`/`image_remaining`/`publication_remaining` |
 | Telegram длиннее 1024 после AI-перевода | Checker обязан пересчитывать длину после перевода; `run_ai_check` теперь отклоняет JSON с выходом за лимит и не применяет его |
 | Новая картинка сгенерировалась, но в черновике старая | Проверить `assets.is_primary`; новая картинка должна становиться primary, старые — `false` |
 | `claude-haiku-5-5` / `claude-opus-5-5` | задать доступный `CLAUDE_MODEL`, fallback только вместе с моделью |
