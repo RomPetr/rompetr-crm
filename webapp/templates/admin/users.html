@@ -4,7 +4,7 @@
 <h1>Пользователи</h1>
 {% if request.query_params.get("ok") == "limits" %}<p class="ok">Остаток лимитов обновлён.</p>{% endif %}
 {% if status_filter %}<p class="muted">Фильтр: статус «{{ status_filter }}». <a href="/admin/users">Показать всех</a></p>{% endif %}
-<p class="muted">ID 0 — неизменяемый администратор. Новые пользователи приходят как guest и ждут одобрения. Роли: guest, user, admin; роль moderator появится позже.</p>
+<p class="muted">ID 0 — неизменяемый администратор. Новые пользователи приходят как guest и ждут одобрения. Роли: guest, user, admin; роль moderator появится позже. «Сделать пользователем» меняет роль guest → user и отключает гостевые лимиты.</p>
 <div class="table-wrap">
 <table class="table">
   <thead>
@@ -47,7 +47,7 @@
           {% if u.role == 'guest' %}
           <form method="post" action="/admin/users/{{ u.id }}/approve">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button class="button small" type="submit">Одобрить</button>
+            <button class="button small" type="submit">Сделать пользователем</button>
           </form>
           {% endif %}
           {% if u.status != 'blocked' %}

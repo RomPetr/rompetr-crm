@@ -76,6 +76,7 @@ def test_register_verify_login_and_approve(client):
     users_page = client.get("/admin/users")
     assert users_page.status_code == 200
     assert "guest" in users_page.text
+    assert "Сделать пользователем" in users_page.text
     approved = client.post(
         "/admin/users/1/approve", data={"csrf_token": admin_token}, follow_redirects=False
     )
