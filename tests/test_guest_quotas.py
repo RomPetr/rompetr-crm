@@ -64,9 +64,9 @@ def test_guest_has_one_search_and_two_images(client):
 
     page = client.get(f"/drafts/{post_id}")
     assert "Сгенерировать новость" in page.text
-    assert "Поиск: 0/1" in page.text
-    assert "Картинки: 0/2" in page.text
-    assert "Публикаций: 0/1" in page.text
+    assert "Поиск: 0 из 1 · осталось 1" in page.text
+    assert "Картинки: 0 из 2 · осталось 2" in page.text
+    assert "Публикаций: 0 из 1 · осталось 1" in page.text
 
     first_news = client.post(
         f"/drafts/{post_id}/generate-news",
@@ -107,6 +107,6 @@ def test_guest_has_one_search_and_two_images(client):
     assert "лимит" in third_image.text.lower()
 
     page = client.get(f"/drafts/{post_id}")
-    assert "Поиск: 1/1" in page.text
-    assert "Картинки: 2/2" in page.text
-    assert "Публикаций: 0/1" in page.text
+    assert "Поиск: 1 из 1 · осталось 0" in page.text
+    assert "Картинки: 2 из 2 · осталось 0" in page.text
+    assert "Публикаций: 0 из 1 · осталось 1" in page.text

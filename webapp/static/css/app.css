@@ -98,7 +98,7 @@ h2 { font-size: 20px; margin: 0 0 8px; }
   font: inherit;
 }
 .limits-form input[type="number"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-.usage-badge { white-space: nowrap; }
+.usage-badge { white-space: normal; }
 .usage-badge.exhausted {
   color: #fecaca;
   border-color: rgba(248, 113, 113, 0.55);
@@ -118,6 +118,18 @@ h2 { font-size: 20px; margin: 0 0 8px; }
 .button:hover { text-decoration: none; filter: brightness(1.08); }
 .button.secondary { background: var(--surface-2); border: 1px solid var(--border); }
 .button.small { padding: 8px 14px; font-size: 14px; }
+.button:disabled { opacity: 0.55; cursor: not-allowed; filter: none; }
+.button.published,
+.button.published:disabled {
+  background: #16a34a;
+  color: #06140a;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.35), 0 0 16px rgba(22, 163, 74, 0.25);
+  opacity: 1;
+  cursor: default;
+  filter: none;
+}
+.button.published:hover { filter: none; }
 
 .grid {
   display: grid;

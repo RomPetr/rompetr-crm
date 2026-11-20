@@ -220,7 +220,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <h2>Сгенерировать новость</h2>
     <p class="muted">Полный цикл: поиск новости, JSON, проверка, поля площадок и картинка. Может занять до нескольких минут.{% if user.role == "guest" %} Гостю доступно {{ usage.compose_limit }} {{ usage.compose_limit | ru_plural("поиск", "поиска", "поисков") }} новости.{% endif %}</p>
-    <p><span class="badge usage-badge{% if user.role == "guest" and usage.compose_used >= usage.compose_limit %} exhausted{% endif %}">Поиск: {{ usage.compose_used }}{% if user.role == "guest" %}/{{ usage.compose_limit }}{% endif %}</span></p>
+    <p><span class="badge usage-badge{% if user.role == "guest" and usage.compose_used >= usage.compose_limit %} exhausted{% endif %}">{% if user.role == "guest" %}Поиск: {{ usage.compose_used }} из {{ usage.compose_limit }} · осталось {{ [usage.compose_limit - usage.compose_used, 0] | max }}{% else %}Поиск: {{ usage.compose_used }} · лимита нет{% endif %}</span></p>
     <label>Модель изображения
       <select name="model">
         <option value="black-forest-labs/flux.2-pro">Flux.2 Pro</option>
@@ -244,7 +244,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <h2>Сгенерировать PNG</h2>
     <p class="muted">Выберите модель.</p>
-    <p><span class="badge usage-badge{% if user.role == "guest" and usage.image_used >= usage.image_limit %} exhausted{% endif %}">Картинки: {{ usage.image_used }}{% if user.role == "guest" %}/{{ usage.image_limit }}{% endif %}</span></p>
+    <p><span class="badge usage-badge{% if user.role == "guest" and usage.image_used >= usage.image_limit %} exhausted{% endif %}">{% if user.role == "guest" %}Картинки: {{ usage.image_used }} из {{ usage.image_limit }} · осталось {{ [usage.image_limit - usage.image_used, 0] | max }}{% else %}Картинки: {{ usage.image_used }} · лимита нет{% endif %}</span></p>
     <label>Модель
       <select name="model">
         <option value="black-forest-labs/flux.2-pro">Flux.2 Pro</option>
@@ -328,7 +328,7 @@
     <p class="muted">Гостевой доступ: публикация возможна после одобрения администратором и при положительном лимите публикаций.</p>
     <div class="actions-row">
       {% if post.status == "published" %}
-        <button class="button" type="button" disabled>Опубликовано</button>
+        <button class="button published" type="button" disabled>Опубликовано</button>
       {% elif post.status == "approved" and usage.publications < usage.publication_limit %}
         <form method="post" action="/drafts/{{ post.id }}/publish">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -337,7 +337,7 @@
       {% else %}
         <button class="button" type="button" disabled>Опубликовать</button>
       {% endif %}
-      <span class="badge usage-badge{% if usage.publications >= usage.publication_limit %} exhausted{% endif %}">Публикаций: {{ usage.publications }}/{{ usage.publication_limit }}</span>
+      <span class="badge usage-badge{% if usage.publications >= usage.publication_limit %} exhausted{% endif %}">Публикаций: {{ usage.publications }} из {{ usage.publication_limit }} · осталось {{ [usage.publication_limit - usage.publications, 0] | max }}</span>
     </div>
     {% if post.status == "published" %}
       <p class="ok">Опубликовано. Повторная публикация отключена.</p>
@@ -353,14 +353,14 @@
     <p class="muted">VK и Telegram уйдут сразу. X появится как ручная очередь с готовой ссылкой.</p>
     <div class="actions-row">
       {% if post.status == "published" %}
-        <button class="button" type="button" disabled>Опубликовано</button>
+        <button class="button published" type="button" disabled>Опубликовано</button>
       {% else %}
       <form method="post" action="/drafts/{{ post.id }}/publish">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button class="button" type="submit">Опубликовать</button>
       </form>
       {% endif %}
-      <span class="badge usage-badge">Публикаций: {{ usage.publications }}</span>
+      <span class="badge usage-badge">Публикаций: {{ usage.publications }} · лимита нет</span>
     </div>
     {% if post.status == "published" %}
       <p class="ok">Опубликовано. Повторная публикация отключена.</p>
