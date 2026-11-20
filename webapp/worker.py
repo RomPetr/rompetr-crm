@@ -9,8 +9,10 @@ import threading
 from datetime import date, datetime, timezone
 from datetime import time as dt_time
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from webapp.config import ROOT, get_settings
@@ -168,8 +170,53 @@ def run_generate_image(db: Session, job: Job) -> dict:
     return {"asset_id": asset.id, "storage_key": asset.storage_key, "bytes": asset.bytes}
 
 
+USED_SOURCE_LIMIT = 40
 
-def _compose_prompt(path: Path) -> str:
+
+def _canonical_source_url(url: str) -> str:
+    """Ссылка без различий в регистре хоста, якоре и хвостовом слеше."""
+    value = url.strip()
+    try:
+        parts = urlsplit(value)
+    except ValueError:
+        return value.lower()
+    return urlunsplit(
+        (parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip("/"), parts.query, "")
+    )
+
+
+def _used_sources(db: Session, limit: int = USED_SOURCE_LIMIT) -> list[tuple[str, str]]:
+    """Последние использованные новости, чтобы модель не выбрала их повторно."""
+    rows = db.execute(
+        select(Post.source_title, Post.source_url)
+        .where(Post.source_url.is_not(None), Post.source_url != "")
+        .order_by(Post.updated_at.desc())
+        .limit(limit)
+    ).all()
+    return [(title or url, url) for title, url in rows]
+
+
+def _duplicate_source_post(db: Session, url: str) -> int | None:
+    target = _canonical_source_url(url)
+    rows = db.execute(
+        select(Post.id, Post.source_url).where(
+            Post.source_url.is_not(None), Post.source_url != ""
+        )
+    ).all()
+    for post_id, existing in rows:
+        if _canonical_source_url(existing) == target:
+            return int(post_id)
+    return None
+
+
+def _compose_prompt(path: Path, used_sources: list[tuple[str, str]]) -> str:
+    used_block = ""
+    if used_sources:
+        items = "\n".join(f"- {title} — {url}" for title, url in used_sources)
+        used_block = f"""
+Уже использованные новости (повторять нельзя, даже если они ещё есть в лентах):
+{items}
+"""
     return f"""Ты Content Plant для сообщества «Разум DEX». Найди одну свежую новость за сегодня или вчера и запиши её в JSON {path}.
 
 Источники (используй WebFetch):
@@ -178,8 +225,8 @@ def _compose_prompt(path: Path) -> str:
 - Blockworks: https://blockworks.co/feed
 - CoinDesk: https://www.coindesk.com/arc/outboundfeeds/rss/
 - Decrypt: https://decrypt.co/feed
-
-Приоритет: DEX/AMM/DeFi, AI-агенты, торговые боты, кошельки и безопасность, on-chain-аналитика, регулирование. Не бери чистые движения цены. Открой статью через WebFetch и проверь факты.
+{used_block}
+Приоритет: DEX/AMM/DeFi, AI-агенты, торговые боты, кошельки и безопасность, on-chain-аналитика, регулирование. Не бери чистые движения цены. Открой статью через WebFetch и проверь факты. Если подходящая по приоритету новость уже есть в списке использованных, пропусти её и возьми следующую свежую новость из любого источника.
 
 Запиши JSON строго по схеме:
 schema_version "crypto-ai-social-content/v1";
@@ -212,7 +259,7 @@ def run_compose_news(db: Session, job: Job) -> dict:
     path = folder / "post.json"
 
     result = claude_runner.run(
-        _compose_prompt(path),
+        _compose_prompt(path, _used_sources(db)),
         job.public_id,
         timeout_sec=1200,
         allowed_tools=("Read", "Write", "WebFetch", "WebSearch"),
@@ -234,9 +281,17 @@ def run_compose_news(db: Session, job: Job) -> dict:
     except Exception as exc:
         raise RuntimeError(f"Сгенерированный JSON невалиден: {exc}") from exc
 
+    source_url = str(document.source.url)
+    duplicate_id = _duplicate_source_post(db, source_url)
+    if duplicate_id is not None:
+        raise RuntimeError(
+            f"Эта новость уже использована в посте #{duplicate_id}: {source_url}. "
+            "Запустите генерацию ещё раз, чтобы выбрать другую новость."
+        )
+
     source = {
         "title": document.source.title,
-        "url": str(document.source.url),
+        "url": source_url,
         "published_at": document.source.published_at,
         "publisher": document.source.publisher,
     }
@@ -247,7 +302,7 @@ def run_compose_news(db: Session, job: Job) -> dict:
 
     post.title = document.source.title[:300]
     post.source_title = document.source.title
-    post.source_url = str(document.source.url)
+    post.source_url = source_url
     post.source_publisher = document.source.publisher
     post.source_published_at = datetime.combine(
         document.source.published_at, dt_time.min, tzinfo=timezone.utc

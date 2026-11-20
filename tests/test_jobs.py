@@ -51,6 +51,20 @@ def make_draft(db, title: str):
     return post
 
 
+def compose_data(url: str, title: str = "Generated news title") -> dict:
+    return {
+        "schema_version": "crypto-ai-social-content/v1",
+        "source": {
+            "title": title,
+            "url": url,
+            "published_at": "2026-11-16",
+            "publisher": "The Block",
+        },
+        "image_prompt": "Cinematic 3D illustration of a generated news scene, dark fintech aesthetic.",
+        "platforms": {name: {"content": text} for name, text in texts().items()},
+    }
+
+
 def test_enqueue_is_idempotent_and_claims():
     db = SessionLocal()
     try:
@@ -237,24 +251,13 @@ def test_document_for_contains_only_enabled_platforms():
 
 
 def test_compose_news_job(monkeypatch):
-    import json
-
-    from webapp.config import ROOT
+    prompts = []
 
     def fake_run(prompt, job_id, timeout_sec=None, allowed_tools=None, **kwargs):
         assert kwargs["max_budget_usd"] >= 6
+        prompts.append(prompt)
         path = ROOT / "var" / "jobs" / job_id / "post.json"
-        data = {
-            "schema_version": "crypto-ai-social-content/v1",
-            "source": {
-                "title": "Generated news title",
-                "url": "https://www.theblock.co/news/generated",
-                "published_at": "2026-11-16",
-                "publisher": "The Block",
-            },
-            "image_prompt": "Cinematic 3D illustration of a generated news scene, dark fintech aesthetic.",
-            "platforms": {name: {"content": text} for name, text in texts().items()},
-        }
+        data = compose_data("https://www.theblock.co/news/generated")
         path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         return SimpleNamespace(
             exit_code=0, stdout="", stderr="", parsed={"result": "PASS"}, timed_out=False, log_path=None
@@ -268,6 +271,10 @@ def test_compose_news_job(monkeypatch):
 
     db = SessionLocal()
     try:
+        used = make_draft(db, "Used source")
+        used.source_title = "Used before"
+        used.source_url = "https://www.theblock.co/news/used-before"
+        db.commit()
         post = make_draft(db, "Compose target")
         job = jobs.enqueue(
             db, "compose_news", post, created_by=0, payload={"model": "gpt-image-1-mini"}
@@ -282,5 +289,41 @@ def test_compose_news_job(monkeypatch):
         assert post.source_title == "Generated news title"
         assert post.platforms["telegram"].startswith("Т")
         assert job.payload["result"]["asset_id"] == 55
+        assert "https://www.theblock.co/news/used-before" in prompts[0]
+        assert "повторять нельзя" in prompts[0]
+    finally:
+        db.close()
+
+
+def test_compose_news_rejects_duplicate_source(monkeypatch):
+    def fake_run(prompt, job_id, timeout_sec=None, allowed_tools=None, **kwargs):
+        path = ROOT / "var" / "jobs" / job_id / "post.json"
+        data = compose_data("https://www.theblock.co/news/duplicate-source/")
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        return SimpleNamespace(
+            exit_code=0, stdout="", stderr="", parsed={"result": "PASS"}, timed_out=False, log_path=None
+        )
+
+    monkeypatch.setattr("webapp.worker.claude_runner.run", fake_run)
+
+    db = SessionLocal()
+    try:
+        existing = make_draft(db, "Existing duplicate")
+        existing.source_title = "Duplicate source"
+        existing.source_url = "https://www.theblock.co/news/duplicate-source"
+        target = make_draft(db, "Duplicate target")
+        target.source_title = ""
+        target.source_url = ""
+        db.commit()
+        job = jobs.enqueue(db, "compose_news", target, created_by=0)
+        job.attempts = 1
+        db.commit()
+        process(db, job)
+        db.refresh(job)
+        db.refresh(target)
+        assert job.status == "failed"
+        assert "уже использована" in (job.error or "")
+        assert f"#{existing.id}" in (job.error or "")
+        assert target.source_url == ""
     finally:
         db.close()
