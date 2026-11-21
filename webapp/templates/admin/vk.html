@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}VK ID — админка{% endblock %}
+{% block content %}
+<h1>VK ID</h1>
+<p class="muted">Подключение пользовательского токена с правом <code>photos</code>. Текст публикуется ключом сообщества, а картинка загружается на стену от имени владельца сообщества.</p>
+
+{% if request.query_params.get("ok") == "connected" %}
+  <p class="ok">VK ID подключён. Токен сохранён на сервере и в браузер не передаётся.</p>
+{% endif %}
+{% if request.query_params.get("error") %}
+  <p class="error">Не удалось подключить VK ID: {{ request.query_params.get("error") }}</p>
+{% endif %}
+
+<section class="card note">
+  <h2>Состояние</h2>
+  <table class="table">
+    <tbody>
+      <tr><th>Сообщество</th><td>{{ vk_group_id or "VK_GROUP_ID не задан" }}</td></tr>
+      <tr><th>Ключ сообщества</th><td>{{ "задан" if community_token else "не задан" }}</td></tr>
+      <tr><th>Redirect URL</th><td><code>{{ redirect_uri }}</code></td></tr>
+      <tr><th>Пользовательский токен</th><td>{% if status.connected %}подключён{% else %}не подключён{% endif %}</td></tr>
+      {% if status.connected %}
+        <tr><th>VK user_id</th><td>{{ status.user_id or "—" }}</td></tr>
+        <tr><th>Права</th><td>{{ status.scope or "—" }}</td></tr>
+        <tr><th>Access token до</th><td>{% if status.expires_at %}{{ status.expires_at.strftime("%d.%m.%Y %H:%M UTC") }}{% else %}—{% endif %}</td></tr>
+        <tr><th>Refresh token</th><td>{{ "есть" if status.refresh_available else "нет — подключите заново" }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  {% if problems %}
+    <p class="error">Не хватает настроек: {{ problems | join("; ") }}.</p>
+  {% endif %}
+
+  {% if status.connected %}
+    <p><a class="button" href="/admin/vk/connect">Переподключить VK ID</a></p>
+    <p class="muted">Переподключение заменит сохранённый токен. Старые токены VK ID станут недействительными.</p>
+  {% else %}
+    <p><a class="button" href="/admin/vk/connect">Подключить VK ID</a></p>
+    <p class="muted">Откроется страница VK ID. Войдите под владельцем сообщества и разрешите доступ к фотографиям.</p>
+  {% endif %}
+</section>
+
+<section class="card note">
+  <h2>Как это работает</h2>
+  <ol>
+    <li>Пользовательский токен запрашивает <code>photos.getWallUploadServer</code> для сообщества.</li>
+    <li>PNG загружается на сервер VK и сохраняется через <code>photos.saveWallPhoto</code>.</li>
+    <li>Пост публикуется ключом сообщества через <code>wall.post</code> с вложением фотографии.</li>
+  </ol>
+  {% if not status.connected %}
+    <p class="muted">Пока VK ID не подключён, посты публикуются только текстом, а в публикации появляется примечание.</p>
+  {% endif %}
+</section>
+{% endblock %}

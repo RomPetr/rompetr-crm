@@ -81,7 +81,7 @@ def login(client, username: str, password: str) -> None:
 def test_draft_flow_and_moderation(client, monkeypatch):
     monkeypatch.setattr(
         "webapp.services.vk.publish",
-        lambda text: SimpleNamespace(
+        lambda text, image_path: SimpleNamespace(
             ok=True, external_id="37", url="https://vk.com/wall-1_37", error=None, unknown=False
         ),
     )
@@ -462,7 +462,7 @@ def test_compose_news_button_admin_only(client):
 def test_admin_publishes_after_check_without_manual_approval(client, monkeypatch):
     monkeypatch.setattr(
         "webapp.services.vk.publish",
-        lambda text: SimpleNamespace(
+        lambda text, image_path: SimpleNamespace(
             ok=True, external_id="1", url="https://vk.com/wall-1_1", error=None, unknown=False
         ),
     )

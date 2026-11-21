@@ -48,7 +48,7 @@ def make_approved_post(db, title: str) -> Post:
 def test_publish_is_idempotent(monkeypatch):
     calls = {"vk": 0, "telegram": 0}
 
-    def fake_vk(text):
+    def fake_vk(text, image_path):
         calls["vk"] += 1
         return SimpleNamespace(
             ok=True,
@@ -91,7 +91,7 @@ def test_publish_is_idempotent(monkeypatch):
 def test_unknown_is_not_retried(monkeypatch):
     calls = {"telegram": 0}
 
-    def fake_vk(text):
+    def fake_vk(text, image_path):
         return SimpleNamespace(ok=True, external_id="1", url="https://vk.com/wall-1_1", error=None, unknown=False)
 
     def fake_tg(text, image_path):
@@ -157,7 +157,7 @@ def test_image_is_attached_even_when_prompt_disabled(monkeypatch):
 
     captured = {}
 
-    def fake_vk(text):
+    def fake_vk(text, image_path):
         return SimpleNamespace(ok=True, external_id="1", url="https://vk.com/wall-1_1", error=None, unknown=False)
 
     def fake_tg(text, image_path):

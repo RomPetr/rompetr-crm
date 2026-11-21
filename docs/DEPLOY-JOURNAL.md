@@ -675,6 +675,28 @@ $//'`.
 - Деплой: коммит `0134c99`, `rompetr-web` перезапущен, `/healthz` — 200,
   `testuser` остаётся `role=guest`, `status=active`.
 
+### 2026-11-21 — VK ID: фото на стене сообщества
+
+- Причина: ключ сообщества VK не умеет `photos.*` (`error 27`), поэтому PNG
+  прикрепляется пользовательским токеном VK ID с правом `photos`, а
+  `wall.post` выполняется текущим ключом сообщества.
+- Добавлены `VK_CLIENT_ID`, `VK_SERVICE_KEY`, `VK_SECRET_KEY`,
+  `VK_REDIRECT_URI`, `VK_OAUTH_SCOPE`, `VK_OAUTH_FILE`.
+- OAuth 2.1 + PKCE: `/admin/vk/connect` → VK ID → `/admin/vk/callback`;
+  `state` и `code_verifier` лежат в подписанной HttpOnly-cookie, токены — в
+  `var/secrets/vk_oauth.json` (каталог `700`, файл `600`, владелец `cpapp`).
+- `webapp/services/vk.py`: refresh с ротацией refresh token, загрузка
+  `getWallUploadServer` → multipart → `saveWallPhoto`, fallback на текст с
+  примечанием, если фото прикрепить не удалось.
+- Файлы: `webapp/services/vk.py`, `webapp/routers/admin.py`,
+  `webapp/templates/admin/vk.html`, `webapp/config.py`,
+  `webapp/services/publish.py`, `.env.example`, `README.md`, `tests/test_vk.py`.
+- Проверки: `ruff` и 70 pytest — зелёные.
+- Ловушка: VK ID user token (`vk2.a.*`) по отчётам 2026 года может не
+  приниматься VK API (`error 1051`). После авторизации сразу проверить
+  `photos.getWallUploadServer`; при 1051 нужен legacy-токен `vk1.a.*` или
+  вариант B/C из `docs/VK-PHOTO-PUBLISHING.md`.
+
 ---
 
 ## 3. Открытые вопросы

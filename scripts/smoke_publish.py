@@ -62,7 +62,9 @@ def main() -> int:
                 document.platforms.telegram.content, image if image.exists() else None
             )
         elif name == "vk":
-            result = vk.publish(document.platforms.vk.content)
+            result = vk.publish(
+                document.platforms.vk.content, image if image.exists() else None
+            )
         else:
             print(f"ERROR: неизвестная площадка {name}", file=sys.stderr)
             failures += 1

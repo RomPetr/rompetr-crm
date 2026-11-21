@@ -84,7 +84,7 @@ def publish_post(db: Session, post: Post, actor: User) -> list[Outcome]:
         db.flush()
 
         if platform == "vk":
-            result = vk.publish(text)
+            result = vk.publish(text, image_path)
         else:
             result = telegram.publish(text, image_path)
 
@@ -93,7 +93,7 @@ def publish_post(db: Session, post: Post, actor: User) -> list[Outcome]:
             publication.external_id = result.external_id
             publication.external_url = result.url
             publication.published_at = datetime.now(timezone.utc)
-            publication.last_error = None
+            publication.last_error = getattr(result, "warning", None)
         elif result.unknown:
             publication.status = "unknown"
             publication.last_error = result.error

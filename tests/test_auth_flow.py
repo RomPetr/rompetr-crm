@@ -108,6 +108,11 @@ def test_admin_dashboard_links_and_user_filter(client):
     assert 'href="/admin/tickets"' in page.text
     assert 'href="/admin/posts"' in page.text
     assert 'href="/admin/jobs"' in page.text
+    assert 'href="/admin/vk"' in page.text
+
+    vk_page = client.get("/admin/vk")
+    assert vk_page.status_code == 200
+    assert "Подключить VK ID" in vk_page.text
 
     users = client.get("/admin/users?status=pending")
     assert users.status_code == 200

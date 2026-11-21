@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import urllib.parse
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -18,7 +19,7 @@ from webapp.models.content import Post
 from webapp.models.support import Ticket, TicketMessage
 from webapp.models.system import Job
 from webapp.models.user import User
-from webapp.services import audit, sessions
+from webapp.services import audit, sessions, vk
 from webapp.services import posts as posts_service
 from webapp.services import usage as usage_service
 from webapp.templating import render
@@ -48,6 +49,101 @@ def overview(request: Request, db: Session = Depends(get_db), admin: User = Depe
         ).scalar_one(),
     }
     return render(request, "admin/index.html", admin=admin, counts=counts)
+
+
+def _vk_redirect(*, error: str | None = None, ok: str | None = None) -> RedirectResponse:
+    query = ""
+    if error:
+        query = "?" + urllib.parse.urlencode({"error": error[:300]})
+    elif ok:
+        query = "?" + urllib.parse.urlencode({"ok": ok})
+    response = RedirectResponse("/admin/vk" + query, status_code=303)
+    response.headers["Cache-Control"] = "no-store"
+    response.delete_cookie(vk.OAUTH_COOKIE, path="/admin/vk")
+    return response
+
+
+@router.get("/vk")
+def vk_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    settings = get_settings()
+    return render(
+        request,
+        "admin/vk.html",
+        admin=admin,
+        status=vk.token_status(),
+        problems=vk.config_problems(),
+        redirect_uri=vk.redirect_uri(),
+        vk_group_id=settings.vk_group_id,
+        community_token=bool(settings.vk_access_token.get_secret_value()),
+    )
+
+
+@router.get("/vk/connect")
+def vk_connect(
+    admin: User = Depends(require_admin),
+):
+    try:
+        url, cookie = vk.start_oauth(admin.id)
+    except vk.VKError as exc:
+        return _vk_redirect(error=str(exc))
+    response = RedirectResponse(url, status_code=303)
+    response.headers["Cache-Control"] = "no-store"
+    response.set_cookie(
+        vk.OAUTH_COOKIE,
+        cookie,
+        max_age=vk.OAUTH_STATE_TTL,
+        httponly=True,
+        samesite="lax",
+        secure=get_settings().cookie_secure,
+        path="/admin/vk",
+    )
+    return response
+
+
+@router.get("/vk/callback")
+def vk_callback(
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    state = request.query_params.get("state", "")
+    code = request.query_params.get("code", "")
+    device_id = request.query_params.get("device_id", "")
+    if not state or not code or not device_id:
+        return _vk_redirect(error="VK ID не передал code, state или device_id")
+    try:
+        tokens = vk.complete_oauth(
+            code=code,
+            device_id=device_id,
+            state=state,
+            cookie_value=request.cookies.get(vk.OAUTH_COOKIE),
+            admin_id=admin.id,
+        )
+    except vk.VKError as exc:
+        audit.log_action(
+            db,
+            "admin.vk_connect_failed",
+            actor_id=admin.id,
+            entity_type="integration",
+            entity_id="vk",
+            meta={"error": str(exc)[:300]},
+        )
+        db.commit()
+        return _vk_redirect(error=str(exc))
+    audit.log_action(
+        db,
+        "admin.vk_connected",
+        actor_id=admin.id,
+        entity_type="integration",
+        entity_id="vk",
+        meta={"user_id": tokens.get("user_id")},
+    )
+    db.commit()
+    return _vk_redirect(ok="connected")
 
 
 @router.get("/users")

@@ -64,6 +64,12 @@ class Settings(BaseSettings):
 
     vk_access_token: SecretStr = SecretStr("")
     vk_group_id: str = ""
+    vk_client_id: str = ""
+    vk_secret_key: SecretStr = SecretStr("")
+    vk_service_key: SecretStr = SecretStr("")
+    vk_oauth_file: str = "var/secrets/vk_oauth.json"
+    vk_redirect_uri: str = ""
+    vk_oauth_scope: str = "photos"
 
     telegram_bot_token: SecretStr = SecretStr("")
     telegram_chat_id: str = ""
