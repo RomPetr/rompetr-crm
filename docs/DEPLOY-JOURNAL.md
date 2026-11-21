@@ -692,6 +692,11 @@ $//'`.
   `webapp/templates/admin/vk.html`, `webapp/config.py`,
   `webapp/services/publish.py`, `.env.example`, `README.md`, `tests/test_vk.py`.
 - Проверки: `ruff` и 70 pytest — зелёные.
+- Деплой: коммит `130b2d4`; в `/etc/rompetr-crm/app.env` добавлены
+  `VK_CLIENT_ID`, `VK_SERVICE_KEY`, `VK_SECRET_KEY`, `VK_REDIRECT_URI`,
+  `VK_OAUTH_SCOPE`, `VK_OAUTH_FILE` (значения не печатались), создан
+  `/srv/rompetr/crm/var/secrets` (`cpapp:cpmedia`, `700`), сервисы
+  перезапущены, `/healthz` — 200.
 - Ловушка: VK ID user token (`vk2.a.*`) по отчётам 2026 года может не
   приниматься VK API (`error 1051`). После авторизации сразу проверить
   `photos.getWallUploadServer`; при 1051 нужен legacy-токен `vk1.a.*` или
