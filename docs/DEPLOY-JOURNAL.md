@@ -702,6 +702,25 @@ $//'`.
   `photos.getWallUploadServer`; при 1051 нужен legacy-токен `vk1.a.*` или
   вариант B/C из `docs/VK-PHOTO-PUBLISHING.md`.
 
+### 2026-11-21 — VK ID подключён: не хватает доступа photos
+
+- Владелец подключил приложение через `/admin/vk`: `token_status` —
+  `connected: true`, `user_id: 852659808`, `scope: vkid.personal_info`,
+  токен формата `vk2.a.*`; refresh доступен.
+- Диагностика с VPS: `users.get` — OK (Роман Петров); `photos.getWallUploadServer`
+  — `error 15: Access denied: no access to call this method. It cannot be
+  called with current scopes`; `account.getAppPermissions` и
+  `apps.getScopes` — `error 1051` (ограничение профиля `vk2.a.*`).
+- Вывод: токен `vk2.a.*` метод `photos.getWallUploadServer` принимает, но у
+  приложения нет расширенного доступа `photos`. Это не случай Postiz #1408
+  (там 1051 на `wall.post`). Нужно включить «Фотографии» в кабинете VK ID
+  (Доступы → Расширенные доступы) либо отправить письмо на
+  `devsupport@corp.vk.com`; черновик письма с `app_id 54912176` и текстом
+  ошибки — в `docs/VK-PHOTO-PUBLISHING.md`, раздел 6.
+- После включения: «Переподключить VK ID» на `/admin/vk`, затем повторить
+  `photos.getWallUploadServer`. Публикация поста #15 (draft, PNG 1024×1024)
+  ещё не выполнялась.
+
 ---
 
 ## 3. Открытые вопросы
