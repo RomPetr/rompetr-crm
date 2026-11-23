@@ -327,3 +327,55 @@ def test_compose_news_rejects_duplicate_source(monkeypatch):
         assert target.source_url == ""
     finally:
         db.close()
+
+
+def test_compose_news_skips_disabled_platforms(monkeypatch):
+    """Выключенные площадки не готовятся и не перезаписываются compose-задачей."""
+    prompts = []
+
+    def fake_run(prompt, job_id, timeout_sec=None, allowed_tools=None, **kwargs):
+        prompts.append(prompt)
+        path = ROOT / "var" / "jobs" / job_id / "post.json"
+        data = compose_data("https://www.theblock.co/news/generated-disabled")
+        data["platforms"]["instagram"] = {"content": "Модель проигнорировала инструкцию"}
+        data["platforms"]["tiktok"] = {"content": "Модель проигнорировала инструкцию"}
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        return SimpleNamespace(
+            exit_code=0, stdout="", stderr="", parsed={"result": "PASS"},
+            timed_out=False, log_path=None,
+        )
+
+    monkeypatch.setattr("webapp.worker.claude_runner.run", fake_run)
+    monkeypatch.setattr(
+        "webapp.services.images.generate",
+        lambda db, post, user_id, model=None: SimpleNamespace(
+            id=56, storage_key="posts/x/56.png", bytes=10
+        ),
+    )
+
+    db = SessionLocal()
+    try:
+        post = make_draft(db, "Compose with disabled platforms")
+        post.platforms_enabled = {
+            "telegram": True, "vk": True, "instagram": False, "x": True, "tiktok": False,
+        }
+        post.platforms = {**post.platforms, "instagram": "старый текст", "tiktok": "старый текст"}
+        db.commit()
+        job = jobs.enqueue(db, "compose_news", post, created_by=0)
+        db.commit()
+        process(db, job)
+        db.refresh(job)
+        db.refresh(post)
+        assert job.status == "succeeded", job.error
+        prompt = prompts[0]
+        assert "Выключенные площадки (instagram, tiktok)" in prompt
+        assert "Instagram 100–200 слов" not in prompt
+        assert "TikTok 50–120 слов" not in prompt
+        assert "Telegram 800–1024" in prompt
+        assert post.platforms_enabled["instagram"] is False
+        assert post.platforms_enabled["tiktok"] is False
+        assert post.platforms["instagram"] == "старый текст"
+        assert post.platforms["tiktok"] == "старый текст"
+        assert post.platforms["telegram"].startswith("Т")
+    finally:
+        db.close()

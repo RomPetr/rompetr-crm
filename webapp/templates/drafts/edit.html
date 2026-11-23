@@ -229,7 +229,7 @@
   <form method="post" action="/drafts/{{ post.id }}/generate-news" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <h2>Сгенерировать новость</h2>
-    <p class="muted">Полный цикл: поиск новости, JSON, проверка, поля площадок и картинка. Может занять до нескольких минут.</p>
+    <p class="muted">Полный цикл: поиск новости, JSON, проверка, поля площадок и картинка. Может занять до нескольких минут. Готовятся только включённые площадки — выключенные пропускаются.</p>
     <p><span class="badge usage-badge{% if user.role == "guest" and usage.compose_used >= usage.compose_limit %} exhausted{% endif %}">{% if user.role == "guest" %}Поиск: осталось {{ usage.compose_remaining }}{% else %}Поиск: без лимита{% endif %}</span></p>
     <label>Модель изображения
       <select name="model">

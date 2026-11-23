@@ -209,7 +209,22 @@ def _duplicate_source_post(db: Session, url: str) -> int | None:
     return None
 
 
-def _compose_prompt(path: Path, used_sources: list[tuple[str, str]]) -> str:
+PLATFORM_RULES = {
+    "telegram": "Telegram 800–1024 символа включая ссылку, без хэштегов.",
+    "vk": "VK 700–1500 символов включая ссылку; хэштеги не обязательны.",
+    "instagram": "Instagram 100–200 слов включая ссылку, 5–10 хэштегов.",
+    "tiktok": "TikTok 50–120 слов включая ссылку, 3–5 хэштегов.",
+    "x": (
+        "X до 280 символов включая ссылку; хэштегов 0, максимум 1 только для "
+        "события. Общие #crypto/#DeFi/#DEX не добавляй; для конкретной монеты "
+        "используй cashtag $BTC/$XRP, не #BTC."
+    ),
+}
+
+
+def _compose_prompt(
+    path: Path, used_sources: list[tuple[str, str]], enabled: tuple[str, ...]
+) -> str:
     used_block = ""
     if used_sources:
         items = "\n".join(f"- {title} — {url}" for title, url in used_sources)
@@ -217,6 +232,42 @@ def _compose_prompt(path: Path, used_sources: list[tuple[str, str]]) -> str:
 Уже использованные новости (повторять нельзя, даже если они ещё есть в лентах):
 {items}
 """
+    disabled = [name for name in PLATFORMS if name not in enabled]
+    example = ", ".join(
+        f'"{name}": {{"content": {json.dumps("…" if name in enabled else "", ensure_ascii=False)}}}'
+        for name in PLATFORMS
+    )
+    if enabled:
+        scope_line = f"Включённые площадки, для которых пиши текст: {', '.join(enabled)}."
+        if disabled:
+            scope_line += (
+                f" Выключенные площадки ({', '.join(disabled)}) не готовь: у них "
+                'content — пустая строка "".'
+            )
+    else:
+        scope_line = (
+            'Включённых площадок нет: во всех пяти ключах content — пустая '
+            'строка "", тексты не пиши.'
+        )
+
+    rules = []
+    ru = [name for name in ("telegram", "vk", "instagram", "tiktok") if name in enabled]
+    if ru:
+        rules.append(f"- русский для {', '.join(ru)}.")
+    if "x" in enabled:
+        rules.append("- x только английский.")
+    if enabled:
+        rules.append(
+            "- Последняя строка каждой включённой площадки — ссылка на главную "
+            "источника: The Block https://www.theblock.co/, The Defiant "
+            "https://thedefiant.io/, Blockworks https://blockworks.co/, CoinDesk "
+            "https://www.coindesk.com/, Decrypt https://decrypt.co/."
+        )
+    for name in PLATFORMS:
+        if name in enabled:
+            rules.append(f"- {PLATFORM_RULES[name]}")
+    rules_block = "\n".join(rules)
+
     return f"""Ты Content Plant для сообщества «Разум DEX». Найди одну свежую новость за сегодня или вчера и запиши её в JSON {path}.
 
 Источники (используй WebFetch):
@@ -232,18 +283,11 @@ def _compose_prompt(path: Path, used_sources: list[tuple[str, str]]) -> str:
 schema_version "crypto-ai-social-content/v1";
 source: title, url полной статьи, published_at YYYY-MM-DD, publisher одно из The Block, The Defiant, Blockworks, CoinDesk, Decrypt;
 image_prompt: английский, 2-4 предложения, без текста/логотипов/людей;
-platforms: объект с ключами telegram, instagram, x, tiktok, vk; значение каждой площадки — объект {{"content": "текст"}}, например:
-"platforms": {{"telegram": {{"content": "…"}}, "instagram": {{"content": "…"}}, "x": {{"content": "…"}}, "tiktok": {{"content": "…"}}, "vk": {{"content": "…"}}}}.
+platforms: объект со всеми пятью ключами telegram, instagram, x, tiktok, vk; значение каждой площадки — объект {{"content": "текст"}}. {scope_line} Например:
+"platforms": {{{example}}}.
 
 Правила текстов:
-- русский для telegram, vk, instagram, tiktok; x только английский.
-- Последняя строка каждой площадки — ссылка на главную источника: The Block https://www.theblock.co/, The Defiant https://thedefiant.io/, Blockworks https://blockworks.co/, CoinDesk https://www.coindesk.com/, Decrypt https://decrypt.co/.
-- Telegram 800–1024 символа включая ссылку, без хэштегов.
-- VK 700–1500 символов включая ссылку; хэштеги не обязательны.
-- Instagram 100–200 слов включая ссылку, 5–10 хэштегов.
-- TikTok 50–120 слов включая ссылку, 3–5 хэштегов.
-- X до 280 символов включая ссылку; хэштегов 0, максимум 1 только для события.
-  Общие #crypto/#DeFi/#DEX не добавляй; для конкретной монеты используй cashtag $BTC/$XRP, не #BTC.
+{rules_block}
 - Факты, цифры и даты — только из источника. Без обещаний доходности и секретов.
 Правь файл через Write. Не запускай субагентов и Bash: длины текстов считай сам.
 Запиши готовый JSON один раз и заверши работу. В ответе верни короткий PASS и заголовок новости."""
@@ -257,9 +301,14 @@ def run_compose_news(db: Session, job: Job) -> dict:
     folder = ROOT / "var" / "jobs" / job.public_id
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / "post.json"
+    enabled = posts_service.enabled_map(post)
 
     result = claude_runner.run(
-        _compose_prompt(path, _used_sources(db)),
+        _compose_prompt(
+            path,
+            _used_sources(db),
+            tuple(name for name in PLATFORMS if enabled[name]),
+        ),
         job.public_id,
         timeout_sec=1200,
         allowed_tools=("Read", "Write", "WebFetch", "WebSearch"),
@@ -295,8 +344,12 @@ def run_compose_news(db: Session, job: Job) -> dict:
         "published_at": document.source.published_at,
         "publisher": document.source.publisher,
     }
-    platforms = {name: getattr(document.platforms, name).content for name in PLATFORMS}
-    errors = validate_document(source, document.image_prompt, platforms)
+    generated = {
+        name: getattr(document.platforms, name).content
+        for name in PLATFORMS
+        if enabled[name]
+    }
+    errors = validate_document(source, document.image_prompt, generated)
     if errors:
         raise RuntimeError("Новость не прошла проверку: " + "; ".join(errors[:6]))
 
@@ -309,8 +362,10 @@ def run_compose_news(db: Session, job: Job) -> dict:
     )
     post.image_prompt = document.image_prompt
     post.image_enabled = True
+    platforms = dict(post.platforms or {})
+    platforms.update(generated)
     post.platforms = platforms
-    post.platforms_enabled = {name: True for name in PLATFORMS}
+    post.platforms_enabled = enabled
     post.version += 1
     db.flush()
 
