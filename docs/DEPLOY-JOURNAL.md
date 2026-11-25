@@ -788,6 +788,13 @@ $//'`.
 - Файлы: `webapp/worker.py`, `webapp/templates/drafts/edit.html`,
   `tests/test_jobs.py`, `tests/test_drafts.py`.
 - Проверки: `ruff check`, 74 pytest — зелёные.
+- Деплой: коммит `324fb3c`; на VPS `git pull` под `cpapp`, `alembic upgrade
+  head` (миграций нет), `rompetr-worker` и `rompetr-web` перезапущены,
+  `/healthz` — 200 локально и по HTTPS.
+- Повторная генерация поста #25: задача #35 — `succeeded` за ~3 минуты, выбрана
+  та же новость (Robinhood/Rialto, The Block), тексты: Telegram 950 симв.,
+  VK 1496, X 217; PNG — asset 22 (991 КБ). Доводочный проход не потребовался:
+  новый текст сразу прошёл лимиты.
 
 ---
 
