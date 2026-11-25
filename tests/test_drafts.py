@@ -459,6 +459,41 @@ def test_compose_news_button_admin_only(client):
     assert denied.status_code in {403, 404}
 
 
+def test_failed_compose_job_shows_error(client):
+    import uuid
+
+    from webapp.db import SessionLocal
+    from webapp.models.system import Job
+
+    login(client, "admin", "test-admin-password-12345")
+    token = csrf(client)
+    created = client.post(
+        "/drafts/new", data={"csrf_token": token, "title": "Ошибка генерации"}, follow_redirects=False
+    )
+    post_id = int(created.headers["location"].rstrip("/").split("/")[-1])
+
+    db = SessionLocal()
+    try:
+        job = Job(
+            public_id=str(uuid.uuid4()),
+            type="compose_news",
+            status="failed",
+            post_id=post_id,
+            post_version=1,
+            error="Новость не прошла проверку: telegram: 1196 символов, нужно 800–1024",
+            idempotency_key=f"test-compose-fail-{uuid.uuid4().hex}",
+        )
+        db.add(job)
+        db.commit()
+        job_id = job.id
+    finally:
+        db.close()
+
+    page = client.get(f"/drafts/{post_id}?job={job_id}")
+    assert "завершилась со статусом failed" in page.text
+    assert "1196 символов" in page.text
+
+
 def test_admin_publishes_after_check_without_manual_approval(client, monkeypatch):
     monkeypatch.setattr(
         "webapp.services.vk.publish",

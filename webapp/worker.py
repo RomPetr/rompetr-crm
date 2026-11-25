@@ -210,7 +210,10 @@ def _duplicate_source_post(db: Session, url: str) -> int | None:
 
 
 PLATFORM_RULES = {
-    "telegram": "Telegram 800–1024 символа включая ссылку, без хэштегов.",
+    "telegram": (
+        "Telegram 800–1024 символа включая ссылку, без хэштегов; "
+        "цель — 850–950 символов, чтобы остался запас до верхнего лимита."
+    ),
     "vk": "VK 700–1500 символов включая ссылку; хэштеги не обязательны.",
     "instagram": "Instagram 100–200 слов включая ссылку, 5–10 хэштегов.",
     "tiktok": "TikTok 50–120 слов включая ссылку, 3–5 хэштегов.",
@@ -293,6 +296,53 @@ platforms: объект со всеми пятью ключами telegram, inst
 Запиши готовый JSON один раз и заверши работу. В ответе верни короткий PASS и заголовок новости."""
 
 
+COMPOSE_FIX_TIMEOUT_SEC = 300
+COMPOSE_FIX_MAX_TURNS = 12
+COMPOSE_FIX_BUDGET_USD = 2.0
+
+
+def _compose_fix_prompt(path: Path, errors: list[str]) -> str:
+    issues = "\n".join(f"- {item}" for item in errors)
+    return f"""Ты редактор Content Plant. В файле {path} тексты не прошли проверку:
+{issues}
+
+Исправь только перечисленные проблемы: сократи или дополни тексты включённых площадок, сохранив факты, цифры и смысл. Поле source не меняй. Последняя строка каждой площадки — ссылка на главную страницу издания из source.publisher. Пересчитай длину вместе со ссылкой: Telegram 800–1024 символа (цель 900), VK 700–1500, X до 280 и только английский, Instagram 100–200 слов и 5–10 хэштегов, TikTok 50–120 слов и 3–5 хэштегов. Правь JSON только через Edit/Write, не запускай субагентов и Bash. В ответе верни короткий PASS."""
+
+
+def _read_compose_document(path: Path) -> PostDocument:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return PostDocument.model_validate(data)
+    except Exception as exc:
+        raise RuntimeError(f"Сгенерированный JSON невалиден: {exc}") from exc
+
+
+def _document_errors(document: PostDocument, enabled: dict[str, bool]) -> list[str]:
+    return validate_document(
+        {
+            "title": document.source.title,
+            "url": str(document.source.url),
+            "published_at": document.source.published_at,
+            "publisher": document.source.publisher,
+        },
+        document.image_prompt,
+        {
+            name: getattr(document.platforms, name).content
+            for name in PLATFORMS
+            if enabled[name]
+        },
+    )
+
+
+def _ensure_unique_source(db: Session, url: str) -> None:
+    duplicate_id = _duplicate_source_post(db, url)
+    if duplicate_id is not None:
+        raise RuntimeError(
+            f"Эта новость уже использована в посте #{duplicate_id}: {url}. "
+            "Запустите генерацию ещё раз, чтобы выбрать другую новость."
+        )
+
+
 def run_compose_news(db: Session, job: Job) -> dict:
     settings = get_settings()
     post = db.get(Post, job.post_id) if job.post_id else None
@@ -324,35 +374,43 @@ def run_compose_news(db: Session, job: Job) -> dict:
         )
         raise RuntimeError(f"Claude Code exit {result.exit_code}: {detail}. Лог: {result.log_path}")
 
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        document = PostDocument.model_validate(data)
-    except Exception as exc:
-        raise RuntimeError(f"Сгенерированный JSON невалиден: {exc}") from exc
-
+    document = _read_compose_document(path)
     source_url = str(document.source.url)
-    duplicate_id = _duplicate_source_post(db, source_url)
-    if duplicate_id is not None:
-        raise RuntimeError(
-            f"Эта новость уже использована в посте #{duplicate_id}: {source_url}. "
-            "Запустите генерацию ещё раз, чтобы выбрать другую новость."
-        )
+    _ensure_unique_source(db, source_url)
 
-    source = {
-        "title": document.source.title,
-        "url": source_url,
-        "published_at": document.source.published_at,
-        "publisher": document.source.publisher,
-    }
+    errors = _document_errors(document, enabled)
+    if errors:
+        fix = claude_runner.run(
+            _compose_fix_prompt(path, errors),
+            f"{job.public_id}-fix",
+            timeout_sec=COMPOSE_FIX_TIMEOUT_SEC,
+            allowed_tools=("Read", "Edit", "Write"),
+            max_turns=COMPOSE_FIX_MAX_TURNS,
+            max_budget_usd=COMPOSE_FIX_BUDGET_USD,
+        )
+        if fix.timed_out:
+            raise RuntimeError(f"Не удалось исправить лимиты: таймаут. Лог: {fix.log_path}")
+        document = _read_compose_document(path)
+        source_url = str(document.source.url)
+        _ensure_unique_source(db, source_url)
+        errors = _document_errors(document, enabled)
+        if errors and fix.exit_code != 0:
+            detail = (
+                str((fix.parsed or {}).get("result") or "").strip()
+                or (fix.stderr or "").strip()
+            )
+            raise RuntimeError(
+                f"Не удалось исправить лимиты: Claude Code exit {fix.exit_code}: "
+                f"{detail}. Лог: {fix.log_path}"
+            )
+    if errors:
+        raise RuntimeError("Новость не прошла проверку: " + "; ".join(errors[:6]))
+
     generated = {
         name: getattr(document.platforms, name).content
         for name in PLATFORMS
         if enabled[name]
     }
-    errors = validate_document(source, document.image_prompt, generated)
-    if errors:
-        raise RuntimeError("Новость не прошла проверку: " + "; ".join(errors[:6]))
-
     post.title = document.source.title[:300]
     post.source_title = document.source.title
     post.source_url = source_url

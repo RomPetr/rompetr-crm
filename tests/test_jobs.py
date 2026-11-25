@@ -295,6 +295,92 @@ def test_compose_news_job(monkeypatch):
         db.close()
 
 
+def test_compose_news_repairs_text_over_limit(monkeypatch):
+    prompts = []
+    fix_tools = []
+    paths = {}
+
+    def fake_run(prompt, job_id, timeout_sec=None, allowed_tools=None, **kwargs):
+        prompts.append(prompt)
+        if job_id.endswith("-fix"):
+            fix_tools.append(allowed_tools)
+            path = paths["post"]
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["platforms"]["telegram"]["content"] = (
+                ("Т" * 830) + "\n\nhttps://www.theblock.co/"
+            )
+            path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        else:
+            path = ROOT / "var" / "jobs" / job_id / "post.json"
+            paths["post"] = path
+            data = compose_data("https://www.theblock.co/news/repair-length")
+            data["platforms"]["telegram"]["content"] = (
+                ("Т" * 1180) + "\n\nhttps://www.theblock.co/"
+            )
+            path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        return SimpleNamespace(
+            exit_code=0, stdout="", stderr="", parsed={"result": "PASS"}, timed_out=False, log_path=None
+        )
+
+    monkeypatch.setattr("webapp.worker.claude_runner.run", fake_run)
+    monkeypatch.setattr(
+        "webapp.services.images.generate",
+        lambda db, post, user_id, model=None: SimpleNamespace(id=57, storage_key="posts/x/57.png", bytes=10),
+    )
+
+    db = SessionLocal()
+    try:
+        post = make_draft(db, "Compose over limit")
+        job = jobs.enqueue(db, "compose_news", post, created_by=0)
+        db.commit()
+        process(db, job)
+        db.refresh(job)
+        db.refresh(post)
+        assert job.status == "succeeded", job.error
+        assert len(prompts) == 2
+        assert "нужно 800–1024" in prompts[1]
+        assert fix_tools == [("Read", "Edit", "Write")]
+        assert 800 <= len(post.platforms["telegram"]) <= 1024
+        assert post.source_url == "https://www.theblock.co/news/repair-length"
+    finally:
+        db.close()
+
+
+def test_compose_news_rejects_when_repair_still_over_limit(monkeypatch):
+    paths = {}
+
+    def fake_run(prompt, job_id, timeout_sec=None, allowed_tools=None, **kwargs):
+        if not job_id.endswith("-fix"):
+            path = ROOT / "var" / "jobs" / job_id / "post.json"
+            paths["post"] = path
+            data = compose_data("https://www.theblock.co/news/repair-failed")
+            data["platforms"]["telegram"]["content"] = (
+                ("Т" * 1180) + "\n\nhttps://www.theblock.co/"
+            )
+            path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        return SimpleNamespace(
+            exit_code=0, stdout="", stderr="", parsed={"result": "PASS"}, timed_out=False, log_path=None
+        )
+
+    monkeypatch.setattr("webapp.worker.claude_runner.run", fake_run)
+
+    db = SessionLocal()
+    try:
+        post = make_draft(db, "Compose repair failed")
+        job = jobs.enqueue(db, "compose_news", post, created_by=0)
+        job.attempts = 1
+        db.commit()
+        process(db, job)
+        db.refresh(job)
+        db.refresh(post)
+        assert job.status == "failed"
+        assert "Новость не прошла проверку" in (job.error or "")
+        assert "нужно 800–1024" in (job.error or "")
+        assert post.source_url == "https://www.theblock.co/news/test"
+    finally:
+        db.close()
+
+
 def test_compose_news_rejects_duplicate_source(monkeypatch):
     def fake_run(prompt, job_id, timeout_sec=None, allowed_tools=None, **kwargs):
         path = ROOT / "var" / "jobs" / job_id / "post.json"

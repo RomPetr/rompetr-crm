@@ -28,16 +28,12 @@
 {% if message == "published" %}<p class="ok">Публикация выполнена.</p>{% endif %}
 {% if message == "approved" %}<p class="ok">Пост одобрен.</p>{% endif %}
 {% if message == "rejected" %}<p class="ok">Пост отклонён.</p>{% endif %}
-{% if completed_job and completed_job.type != "compose_news" %}
-  {% if completed_job.status == "succeeded" %}
-    {% if completed_job.type == "ai_check" %}
-      <p class="ok">Задача #{{ completed_job.id }} завершена: AI-перевод и проверка выполнены.</p>
-    {% else %}
-      <p class="ok">Задача #{{ completed_job.id }} завершена: генерация изображения выполнена.</p>
-    {% endif %}
-  {% else %}
-    <p class="error">Задача #{{ completed_job.id }} завершилась со статусом {{ completed_job.status }}{% if completed_job.error %}: {{ completed_job.error[:300] }}{% endif %}</p>
-  {% endif %}
+{% if completed_job and completed_job.status != "succeeded" %}
+  <p class="error">Задача #{{ completed_job.id }} завершилась со статусом {{ completed_job.status }}{% if completed_job.error %}: {{ completed_job.error[:300] }}{% endif %}</p>
+{% elif completed_job and completed_job.type == "ai_check" %}
+  <p class="ok">Задача #{{ completed_job.id }} завершена: AI-перевод и проверка выполнены.</p>
+{% elif completed_job and completed_job.type == "generate_image" %}
+  <p class="ok">Задача #{{ completed_job.id }} завершена: генерация изображения выполнена.</p>
 {% endif %}
 {% if active_job %}
 <section class="card job-wait" id="job-wait" data-started="{{ active_job.created_at.isoformat() }}" data-post-id="{{ post.id }}" data-job-id="{{ active_job.id }}">
