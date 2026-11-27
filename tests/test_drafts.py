@@ -43,6 +43,10 @@ def test_validator_limits():
     assert any("telegram" in item for item in validate_platforms(bad))
 
     bad = dict(good)
+    bad["telegram"] = ("Т" * 850) + " #крипта" + "\n\nhttps://www.theblock.co/"
+    assert any("уберите хэштеги" in item for item in validate_platforms(bad))
+
+    bad = dict(good)
     bad["vk"] = bad["vk"].replace("https://www.theblock.co/", "")
     assert any("ссылку на главную" in item for item in validate_platforms(bad, "The Block"))
 

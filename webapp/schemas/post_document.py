@@ -129,7 +129,7 @@ def validate_platforms(platforms: dict[str, str], publisher: str | None = None) 
         if not 800 <= len(text) <= 1024:
             errors.append(f"telegram: {len(text)} символов, нужно 800–1024")
         if hashtags(text):
-            errors.append("telegram: хэштеги не используются")
+            errors.append("telegram: уберите хэштеги — они не используются")
         errors += _common_checks(text, "telegram")
 
     if "vk" in platforms:
